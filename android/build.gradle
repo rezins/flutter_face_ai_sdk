@@ -2,14 +2,14 @@ group = "com.rezins.flutter_face_ai_sdk"
 version = "1.0-SNAPSHOT"
 
 buildscript {
-    ext.kotlin_version = "2.1.0"
+    ext.kotlin_version = "2.2.20"
     repositories {
         google()
         mavenCentral()
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:8.9.1")
+        classpath("com.android.tools.build:gradle:8.13.0")
         classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version")
     }
 }
@@ -18,6 +18,7 @@ allprojects {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://jitpack.io' }
     }
 }
 
@@ -30,16 +31,22 @@ android {
     compileSdk = 36
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_11
+        jvmTarget = JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        buildConfig = true
+        dataBinding = true
     }
 
     sourceSets {
         main.java.srcDirs += "src/main/kotlin"
+        main.java.srcDirs += "src/main/java"
         test.java.srcDirs += "src/test/kotlin"
     }
 
@@ -50,6 +57,32 @@ android {
     dependencies {
         testImplementation("org.jetbrains.kotlin:kotlin-test")
         testImplementation("org.mockito:mockito-core:5.0.0")
+
+        // Face AI SDK dependencies
+        implementation 'androidx.fragment:fragment:1.6.2'
+        implementation 'androidx.activity:activity:1.8.0'
+        implementation 'androidx.activity:activity-ktx:1.8.0'
+        implementation 'androidx.core:core-ktx:1.12.0'
+
+        //SDK接入Demo源码及介绍：https://github.com/FaceAISDK/FaceAISDK_Android
+        api 'io.github.faceaisdk:Android:2026.01.16'
+
+
+        //以下为业务需要其他依赖，不是SDK 运行的必须依赖
+        implementation 'pub.devrel:easypermissions:3.0.0'
+        api 'com.airbnb.android:lottie:6.0.0'
+        implementation 'androidx.cardview:cardview:1.0.0'
+        implementation 'io.github.cymchad:BaseRecyclerViewAdapterHelper4:4.1.4'
+
+        implementation("com.github.bumptech.glide:glide:4.16.0")
+        implementation 'androidx.appcompat:appcompat:1.6.0'
+        implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+        implementation "androidx.recyclerview:recyclerview:1.3.2"
+
+        //选照片，用于静态人脸图相似度对比，使用详情见 https://github.com/javakam/FileOperator
+        implementation 'com.github.javakam:file.core:3.9.8@aar'      //核心库必选(Core library required)
+        implementation 'com.github.javakam:file.selector:3.9.8@aar'  //文件选择器(File selector)
+        implementation 'com.github.javakam:file.compressor:3.9.8@aar'//图片压缩,修改自Luban
     }
 
     testOptions {
