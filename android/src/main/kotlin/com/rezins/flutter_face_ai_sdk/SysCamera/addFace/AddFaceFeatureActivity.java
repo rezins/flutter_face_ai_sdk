@@ -73,7 +73,7 @@ public class AddFaceFeatureActivity extends AbsBaseActivity {
     private BaseImageDispose baseImageDispose;
     private String faceID, addFaceType;
     private boolean isConfirmAdd = false;   //是否正在弹出Dialog确定人脸合规，确认期间停止人脸角度合规检测
-    private int addFacePerformanceMode = PERFORMANCE_MODE_FAST;  //默认快速模式，要求人脸正对摄像头
+    private int addFacePerformanceMode = PERFORMANCE_MODE_ACCURATE;  //默认快速模式，要求人脸正对摄像头
 
     //是1:1 还是1:N 人脸搜索添加人脸
     public enum AddFaceImageTypeEnum {
@@ -97,7 +97,7 @@ public class AddFaceFeatureActivity extends AbsBaseActivity {
         }
 
         if(FaceSDKConfig.isDebugMode(this)){
-            addFacePerformanceMode=PERFORMANCE_MODE_FAST;
+            addFacePerformanceMode=PERFORMANCE_MODE_ACCURATE;
         }
 
         Intent intent = getIntent(); // 获取发送过来的Intent对象

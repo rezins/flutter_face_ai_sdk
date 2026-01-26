@@ -11,6 +11,7 @@ import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -58,6 +59,13 @@ public class LivenessDetectActivity extends AbsBaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         hideSystemUI();//炫彩活体全屏显示各种颜色
+
+        // Set max brightness for color flash detection
+        WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+        layoutParams.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL;
+        getWindow().setAttributes(layoutParams);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
         setContentView(R.layout.activity_liveness_detection);
         tipsTextView = findViewById(R.id.tips_view);
         secondTipsTextView = findViewById(R.id.second_tips_view);
@@ -90,6 +98,10 @@ public class LivenessDetectActivity extends AbsBaseActivity {
      */
     private void initLivenessParam() {
         //建议老的低配设备减少活体检测步骤
+        android.util.Log.d("LivenessDetect", "Initializing with liveness type: " + faceLivenessType +
+              ", motionStepSize: " + motionStepSize +
+              ", motionTimeout: " + motionTimeOut);
+
         FaceProcessBuilder faceProcessBuilder = new FaceProcessBuilder.Builder(this)
                 .setLivenessOnly(true)
                 .setLivenessType(faceLivenessType)  //活体检测可以炫彩&动作活体组合，炫彩活体不能在强光下使用
@@ -98,7 +110,7 @@ public class LivenessDetectActivity extends AbsBaseActivity {
                 .setMotionLivenessTimeOut(motionTimeOut)               //动作活体检测，支持设置超时时间 [3,22] 秒 。API 名字0410 修改
                 .setLivenessDetectionMode(MotionLivenessMode.ACCURACY) //硬件配置低用FAST动作活体模式，否则用精确模式
                 .setMotionLivenessTypes(motionLivenessTypes)           //动作活体种类。1 张张嘴,2 微笑,3 眨眨眼,4 摇摇头,5 点点头
-                .setStopVerifyNoFaceRealTime(true)      //没检测到人脸是否立即停止，还是出现过人脸后检测到无人脸停止.(默认false，为后者)
+                .setStopVerifyNoFaceRealTime(false)     //COLOR_FLASH需要false，等待人脸出现后才开始检测
                 .setProcessCallBack(new ProcessCallBack() {
                     /**
                      * 动作活体+炫彩活体都 检测完成，返回炫彩活体分数
@@ -118,12 +130,22 @@ public class LivenessDetectActivity extends AbsBaseActivity {
                      */
                     @Override
                     public void onColorFlash(int color) {
-                        faceCoverView.setFlashColor(color);
+                        android.util.Log.d("LivenessDetect", "Color flash callback: " + color);
+                        if (color == -1) {
+                            android.util.Log.e("LivenessDetect", "Flash detection error: -1");
+                            runOnUiThread(() -> {
+                                setMainTips(R.string.keep_face_visible);
+                                setSecondTips(R.string.color_flash_need_closer_camera);
+                            });
+                        } else {
+                            faceCoverView.setFlashColor(color);
+                        }
                     }
 
                     //人脸识别，活体检测过程中的各种提示
                     @Override
                     public void onProcessTips(int i) {
+                        android.util.Log.d("LivenessDetect", "onProcessTips code: " + i);
                         showFaceVerifyTips(i);
                     }
 

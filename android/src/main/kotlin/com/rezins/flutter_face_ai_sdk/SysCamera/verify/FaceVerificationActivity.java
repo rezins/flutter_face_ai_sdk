@@ -13,8 +13,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -77,6 +79,13 @@ public class FaceVerificationActivity extends AbsBaseActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         hideSystemUI();//炫彩活体全屏显示各种颜色
+
+        // Set max brightness for color flash detection
+        WindowManager.LayoutParams layoutParams = getWindow().getAttributes();
+        layoutParams.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_FULL;
+        getWindow().setAttributes(layoutParams);
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+
         setContentView(R.layout.activity_face_verification);
         tipsTextView = findViewById(R.id.tips_view);
         secondTipsTextView = findViewById(R.id.second_tips_view); //次要提示
@@ -145,17 +154,22 @@ public class FaceVerificationActivity extends AbsBaseActivity {
      */
     private void initFaceVerificationParam(String faceFeature) {
         //建议老的低配设备减少活体检测步骤，加长活体检测 人脸对比时间。
+        Log.d("FaceVerification", "Initializing with liveness type: " + faceLivenessType +
+              ", motionStepSize: " + motionStepSize +
+              ", motionTimeout: " + motionTimeOut +
+              ", threshold: " + verifyThreshold);
+
         FaceProcessBuilder faceProcessBuilder = new FaceProcessBuilder.Builder(this)
                 .setThreshold(verifyThreshold)          //阈值设置，范围限 [0.75,0.95] ,低配摄像头可适量放低，默认0.85
                 .setFaceFeature(faceFeature)            //1:1 人脸识别对比的底片人脸特征值字符串
                 .setCameraType(FaceAICameraType.SYSTEM_CAMERA)  //相机类型，目前分为3种
                 .setCompareDurationTime(4000)           //人脸识别对比时间[3000,6000] 毫秒。相似度低会持续识别比对的时间
                 .setLivenessType(faceLivenessType)      //活体检测可以炫彩&动作活体组合，炫彩活体不能在强光下使用
-                .setLivenessDetectionMode(MotionLivenessMode.FAST)    //硬件配置低或不需太严格用FAST快速模式，否则用精确模式
+                .setLivenessDetectionMode(MotionLivenessMode.ACCURACY)    //COLOR_FLASH需要ACCURACY模式
                 .setMotionLivenessStepSize(motionStepSize)            //随机动作活体的步骤个数[1-2]，SILENT_MOTION和MOTION 才有效
                 .setMotionLivenessTimeOut(motionTimeOut)              //动作活体检测，支持设置超时时间 [3,22] 秒 。API 名字0410 修改
                 .setMotionLivenessTypes(motionLivenessTypes)          //动作活体种类。1 张张嘴,2 微笑,3 眨眨眼,4 摇摇头,5 点点头
-                .setStopVerifyNoFaceRealTime(true)      //没检测到人脸是否立即停止，还是出现过人脸后检测到无人脸停止.(默认false，为后者)
+                .setStopVerifyNoFaceRealTime(false)     //COLOR_FLASH需要false，等待人脸出现后才开始检测
                 .setProcessCallBack(new ProcessCallBack() {
                     /**
                      * 1:1 人脸识别 活体检测 对比结束
@@ -172,12 +186,22 @@ public class FaceVerificationActivity extends AbsBaseActivity {
 
                     @Override
                     public void onColorFlash(int color) {
-                        faceCoverView.setFlashColor(color);//设置炫彩颜色，不能在室外强光环境使用
+                        Log.d("FaceVerification", "Color flash callback: " + color);
+                        if (color == -1) {
+                            Log.e("FaceVerification", "Flash detection error: -1");
+                            runOnUiThread(() -> {
+                                setMainTips(R.string.keep_face_visible);
+                                setSecondTips(R.string.color_flash_need_closer_camera);
+                            });
+                        } else {
+                            faceCoverView.setFlashColor(color);//设置炫彩颜色，不能在室外强光环境使用
+                        }
                     }
 
                     //人脸识别，活体检测过程中的各种提示
                     @Override
                     public void onProcessTips(int code) {
+                        Log.d("FaceVerification", "onProcessTips code: " + code);
                         showFaceVerifyTips(code);
                     }
 
@@ -289,10 +313,13 @@ public class FaceVerificationActivity extends AbsBaseActivity {
 
                 // 动作活体检测完成了
                 case ALIVE_DETECT_TYPE_ENUM.MOTION_LIVE_SUCCESS:
+                    Log.d("FaceVerification", "Motion liveness completed, type: " + faceLivenessType);
                     setMainTips(R.string.keep_face_visible);
                     if (faceLivenessType.equals(FaceLivenessType.COLOR_FLASH_MOTION)) {
                         //如果还配置了炫彩活体，最好语音提前提示靠近屏幕，以便彩色光达到脸上
+                        Log.d("FaceVerification", "Starting color flash detection after motion");
                         VoicePlayer.getInstance().play(R.raw.closer_to_screen);
+                        setSecondTips(R.string.color_flash_need_closer_camera);
                     }
                     break;
 
