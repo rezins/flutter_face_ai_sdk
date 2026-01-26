@@ -30,20 +30,24 @@ class FlutterFaceAiSdk {
   }
 
   /// Start face verification process with liveness detection
-  /// [faceData] - Face ID to verify against
+  /// [faceFeatures] - List of face feature strings from database (priority: first item)
   /// [livenessType] - 0: NONE, 1: MOTION (default), 2: COLOR_FLASH_MOTION, 3: COLOR_FLASH
   /// [motionStepSize] - Number of motion steps (default: 2)
   /// [motionTimeout] - Timeout in seconds (default: 9)
   /// [threshold] - Similarity threshold (default: 0.85)
-  Future<void> startVerify(
-    String faceData, {
+  /// Returns "Verify" or "Not Verify"
+  Future<String?> startVerify(
+    List<String> faceFeatures, {
     int livenessType = 1,
     int motionStepSize = 2,
     int motionTimeout = 9,
     double threshold = 0.85,
   }) {
+    if (faceFeatures.isEmpty) {
+      throw ArgumentError('faceFeatures list must not be empty');
+    }
     return FlutterFaceAiSdkPlatform.instance.startVerify(
-      faceData,
+      faceFeatures,
       livenessType: livenessType,
       motionStepSize: motionStepSize,
       motionTimeout: motionTimeout,

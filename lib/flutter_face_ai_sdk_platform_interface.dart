@@ -43,7 +43,7 @@ abstract class FlutterFaceAiSdkPlatform extends PlatformInterface {
     throw UnimplementedError('startEnroll() has not been implemented.');
   }
 
-  Future<void> startVerify(String faceData, {
+  Future<String?> startVerify(List<String> faceFeatures, {
     int livenessType = 1,
     int motionStepSize = 2,
     int motionTimeout = 9,

@@ -123,27 +123,47 @@ public class FaceVerificationActivity extends AbsBaseActivity {
      * //人脸图片和人脸特征向量不方便传递，以及相关法律法规不允许明文传输。注意数据迁移
      */
     private void initFaceVerifyFeature() {
-        //老的数据
-        float[] faceEmbeddingOld = FaceEmbedding.loadEmbedding(getBaseContext(), faceID);
-        String faceFeatureOld = FaceAISDKEngine.getInstance(this).faceArray2Feature(faceEmbeddingOld);
+        String faceFeature = null;
 
-        //从本地MMKV读取人脸特征值(2025.11.23版本使用MMKV，老的人脸数据请做好迁移)
-        String faceFeature = MMKV.defaultMMKV().decodeString(faceID);
+        // Priority 1: Check if faceFeature passed from Flutter via intent (from database)
+        Intent intent = getIntent();
+        if (intent != null && intent.hasExtra(FACE_DATA_KEY)) {
+            faceFeature = intent.getStringExtra(FACE_DATA_KEY);
+            Log.d("FaceVerification", "Using faceFeature from Flutter (first 50 chars): " +
+                (faceFeature != null ? faceFeature.substring(0, Math.min(50, faceFeature.length())) : "null"));
+        }
+
+        // Priority 2: Fallback - Read from MMKV by faceID (old behavior)
+        if (TextUtils.isEmpty(faceFeature) && !TextUtils.isEmpty(faceID)) {
+            //老的数据
+            float[] faceEmbeddingOld = FaceEmbedding.loadEmbedding(getBaseContext(), faceID);
+            String faceFeatureOld = FaceAISDKEngine.getInstance(this).faceArray2Feature(faceEmbeddingOld);
+
+            //从本地MMKV读取人脸特征值(2025.11.23版本使用MMKV，老的人脸数据请做好迁移)
+            faceFeature = MMKV.defaultMMKV().decodeString(faceID);
+            if (TextUtils.isEmpty(faceFeature) && !TextUtils.isEmpty(faceFeatureOld)) {
+                faceFeature = faceFeatureOld;
+            }
+        }
+
+        // Initialize verification with faceFeature
         if (!TextUtils.isEmpty(faceFeature)) {
             initFaceVerificationParam(faceFeature);
-        } else if (!TextUtils.isEmpty(faceFeatureOld)) {
-            initFaceVerificationParam(faceFeatureOld);
         } else {
             //根据你的业务进行提示去录入人脸 提取特征，服务器有提前同步到本地
             Toast.makeText(getBaseContext(), "faceFeature isEmpty ! ", Toast.LENGTH_LONG).show();
         }
 
-        // 去Path 路径读取有没有faceID 对应的处理好的人脸Bitmap
-        String faceFilePath = FaceSDKConfig.CACHE_BASE_FACE_DIR + faceID;
-        Bitmap baseBitmap = BitmapFactory.decodeFile(faceFilePath);
-        Glide.with(getBaseContext()).load(baseBitmap)
-                .transform(new RoundedCorners(33))
-                .into((ImageView) findViewById(R.id.base_face));
+        // 去Path 路径读取有没有faceID 对应的处理好的人脸Bitmap (optional, may not exist if using database)
+        if (!TextUtils.isEmpty(faceID)) {
+            String faceFilePath = FaceSDKConfig.CACHE_BASE_FACE_DIR + faceID;
+            Bitmap baseBitmap = BitmapFactory.decodeFile(faceFilePath);
+            if (baseBitmap != null) {
+                Glide.with(getBaseContext()).load(baseBitmap)
+                        .transform(new RoundedCorners(33))
+                        .into((ImageView) findViewById(R.id.base_face));
+            }
+        }
     }
 
 
@@ -244,11 +264,13 @@ public class FaceVerificationActivity extends AbsBaseActivity {
                 finishFaceVerify(1, R.string.face_verify_result_success, similarity);
             }, 1500);
         } else {
-            //3.和底片不是同一个人
+            //3.和底片不是同一个人 - langsung finish tanpa dialog
             VoicePlayer.getInstance().addPayList(R.raw.verify_failed);
-            new AlertDialog.Builder(FaceVerificationActivity.this).setTitle(R.string.face_verify_failed_title).setMessage(R.string.face_verify_failed).setCancelable(false).setPositiveButton(R.string.know, (dialogInterface, i) -> {
+            new ImageToast().show(getApplicationContext(), bitmap, "Failed " + similarity);
+
+            new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 finishFaceVerify(2, R.string.face_verify_result_failed, similarity);
-            }).setNegativeButton(R.string.retry, (dialog, which) -> faceVerifyUtils.retryVerify()).show();
+            }, 1500);
         }
 
     }
@@ -461,8 +483,8 @@ public class FaceVerificationActivity extends AbsBaseActivity {
     private void getIntentParams() {
         Intent intent = getIntent(); // 获取发送过来的Intent对象
         if (intent != null) {
-            if (intent.hasExtra(USER_FACE_ID_KEY)) {
-                faceID = intent.getStringExtra(USER_FACE_ID_KEY);
+            if (intent.hasExtra(FACE_DATA_KEY)) {
+                faceID = intent.getStringExtra(FACE_DATA_KEY);
             } else {
                 Toast.makeText(this, R.string.input_face_id_tips, Toast.LENGTH_LONG).show();
             }

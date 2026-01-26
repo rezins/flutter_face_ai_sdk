@@ -169,19 +169,31 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
       _showMessage('Initialize SDK first');
       return;
     }
-    if (_enrolledFaceID == null) {
+    if (_enrolledFaceData == null) {
       _showMessage('Enroll face first');
       return;
     }
     try {
-      await _faceAiSdk.startVerify(
-        _enrolledFaceID!,
+      print('🔍 Starting verification with faceFeature (first 100 chars): ${_enrolledFaceData!.substring(0, _enrolledFaceData!.length > 100 ? 100 : _enrolledFaceData!.length)}...');
+
+      // Pass List<String> with enrolled faceFeature from database
+      final result = await _faceAiSdk.startVerify(
+        [_enrolledFaceData!],  // Pass faceFeature as List<String>
         livenessType: _livenessType,
         motionStepSize: 2,
         motionTimeout: 9,
         threshold: 0.85,
       );
+
+      print('✅ Verification Result: $result');
+
+      if (result == 'Verify') {
+        _showMessage('Verification Success: $result');
+      } else {
+        _showMessage('Verification Failed: $result');
+      }
     } catch (e) {
+      print('❌ Verification Error: $e');
       _showMessage('Verify Failed: $e');
     }
   }
@@ -293,7 +305,7 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
 
             ElevatedButton.icon(
               onPressed:
-                  _isInitialized && _enrolledFaceID != null ? _verify : null,
+                  _isInitialized && _enrolledFaceData != null ? _verify : null,
               icon: const Icon(Icons.verified_user),
               label: const Text('Verify Face'),
               style: ElevatedButton.styleFrom(

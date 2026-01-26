@@ -38,6 +38,7 @@ class FlutterFaceAiSdkPlugin :
     private var activityBinding: ActivityPluginBinding? = null
     private var eventSink: EventChannel.EventSink? = null
     private var pendingEnrollResult: Result? = null
+    private var pendingVerifyResult: Result? = null
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         methodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, METHOD_CHANNEL)
@@ -128,29 +129,41 @@ class FlutterFaceAiSdkPlugin :
 
             "startVerify" -> {
                 try {
-                    val faceID = call.argument<String>("face_data") ?: ""
+                    val faceFeatures = call.argument<ArrayList<String>>("face_features") ?: ArrayList()
                     val livenessType = call.argument<Int>("liveness_type") ?: 1
                     val motionStepSize = call.argument<Int>("motion_step_size") ?: 2
                     val motionTimeout = call.argument<Int>("motion_timeout") ?: 9
                     val threshold = call.argument<Double>("threshold") ?: 0.85
 
-                    Log.d(TAG, "startVerify - faceID: $faceID, liveness: $livenessType")
+                    Log.d(TAG, "startVerify - faceFeatures count: ${faceFeatures.size}, liveness: $livenessType")
 
-                    if (faceID.isEmpty()) {
-                        result.error("VERIFY_ERROR", "FaceID is empty", null)
+                    // Validate list has at least 1 item
+                    if (faceFeatures.isEmpty()) {
+                        result.error("VERIFY_ERROR", "faceFeatures list must have at least 1 item", null)
                         return
                     }
 
+                    // Always use first item (index 0)
+                    val faceFeature = faceFeatures[0]
+                    Log.d(TAG, "Using faceFeature (first 50 chars): ${faceFeature.take(50)}...")
+
+                    if (faceFeature.isEmpty()) {
+                        result.error("VERIFY_ERROR", "Face feature at index 0 is empty", null)
+                        return
+                    }
+
+                    // Store result callback for later use
+                    pendingVerifyResult = result
+
                     activity?.let { act ->
                         val intent = Intent(act, FaceVerificationActivity::class.java).apply {
-                            putExtra(FaceVerificationActivity.USER_FACE_ID_KEY, faceID)
+                            putExtra(FaceVerificationActivity.FACE_DATA_KEY, faceFeature)  // Pass face feature directly
                             putExtra(FaceVerificationActivity.FACE_LIVENESS_TYPE, livenessType)
                             putExtra(FaceVerificationActivity.MOTION_STEP_SIZE, motionStepSize)
                             putExtra(FaceVerificationActivity.MOTION_TIMEOUT, motionTimeout)
                             putExtra(FaceVerificationActivity.THRESHOLD_KEY, threshold.toFloat())
                         }
                         act.startActivityForResult(intent, REQUEST_CODE_VERIFY)
-                        result.success(null)
                     } ?: result.error("ACTIVITY_NULL", "No activity available", null)
                 } catch (e: Exception) {
                     result.error("VERIFY_ERROR", e.message, null)
@@ -240,14 +253,20 @@ class FlutterFaceAiSdkPlugin :
     }
 
     private fun handleVerifyResult(resultCode: Int, data: Intent?) {
-        val eventData = if (resultCode == Activity.RESULT_OK) {
+        val resultString = if (resultCode == Activity.RESULT_OK) {
             val code = data?.getIntExtra("code", 0) ?: 0
             val faceID = data?.getStringExtra("faceID")
             val msg = data?.getStringExtra("msg")
             val similarity = data?.getFloatExtra("similarity", 0f) ?: 0f
             Log.d(TAG, "Verify result - code: $code, faceID: $faceID, similarity: $similarity")
 
-            hashMapOf(
+            // Return result string to Flutter via pending result
+            val result = if (code == 1) "Verify" else "Not Verify"
+            pendingVerifyResult?.success(result)
+            pendingVerifyResult = null
+
+            // Also send event for backward compatibility
+            val eventData = hashMapOf(
                 "event" to "Verified",
                 "code" to code,
                 "result" to if (code == 1) "success" else "fail",
@@ -255,14 +274,26 @@ class FlutterFaceAiSdkPlugin :
                 "message" to msg,
                 "similarity" to similarity
             )
+            sendEvent(eventData)
+
+            result
         } else {
-            hashMapOf(
+            // Return "Not Verify" to Flutter
+            pendingVerifyResult?.success("Not Verify")
+            pendingVerifyResult = null
+
+            // Send failure event
+            val eventData = hashMapOf(
                 "event" to "Verified",
                 "code" to 0,
                 "result" to "fail"
             )
+            sendEvent(eventData)
+
+            "Not Verify"
         }
-        sendEvent(eventData)
+
+        Log.d(TAG, "Verify final result: $resultString")
     }
 
     private fun sendEvent(params: Map<String, Any?>) {

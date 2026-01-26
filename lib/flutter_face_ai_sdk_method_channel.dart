@@ -59,22 +59,23 @@ class MethodChannelFlutterFaceAiSdk extends FlutterFaceAiSdkPlatform {
   }
 
   @override
-  Future<void> startVerify(String faceData, {
+  Future<String?> startVerify(List<String> faceFeatures, {
     int livenessType = 1,
     int motionStepSize = 2,
     int motionTimeout = 9,
     double threshold = 0.85,
   }) async {
-    await methodChannel.invokeMethod<void>(
+    final result = await methodChannel.invokeMethod<String>(
       'startVerify',
       {
-        'face_data': faceData,
+        'face_features': faceFeatures,
         'liveness_type': livenessType,
         'motion_step_size': motionStepSize,
         'motion_timeout': motionTimeout,
         'threshold': threshold,
       },
     );
+    return result;
   }
 
   @override
