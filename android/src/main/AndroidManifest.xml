@@ -1,0 +1,125 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="com.rezins.flutter_face_ai_sdk">
+
+    <!-- 语音提示 -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
+    <uses-permission android:name="com.android.vending.CHECK_LICENSE" />
+
+    <application>
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.FaceAINaviActivity"
+            android:configChanges="orientation"
+            android:theme="@style/AppTheme"
+            android:exported="false">
+        </activity>
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.verify.TwoFaceImageVerifyActivity"
+            android:configChanges="orientation"
+            android:theme="@style/FaceAITheme"
+            android:exported="false">
+        </activity>
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.verify.LivenessDetectActivity"
+            android:theme="@style/Theme.FaceAISDK.Fullscreen"
+            android:launchMode="singleTop"
+            android:exported="false"/>
+
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.AboutFaceAppActivity"
+            android:theme="@style/AppTheme"
+            android:exported="false" />
+
+        <!-- 使用完整类路径 -->
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.camera.CustomCameraActivity"
+            android:theme="@style/AppTheme"
+            android:exported="false" />
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.search.FaceSearchImageMangerActivity"
+            android:theme="@style/AppTheme"
+            android:exported="false">
+        </activity>
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.verify.FaceVerificationActivity"
+            android:theme="@style/Theme.FaceAISDK.Fullscreen"
+            android:launchMode="singleTop"
+            android:exported="true"
+            tools:node="merge"/>
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.addFace.AddFaceFeatureActivity"
+            android:theme="@style/FaceAITheme"
+            android:exported="true"
+            tools:node="merge"/>
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.search.FaceSearch1NActivity"
+            android:theme="@style/FaceAITheme"
+            android:launchMode="singleTop"
+            android:exported="false" />
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.search.FaceSearch1NWithMotionLivenessActivity"
+            android:theme="@style/Theme.FaceAISDK.Fullscreen"
+            android:exported="false" />
+
+        <!-- 保留一个FaceSearchMNActivity定义 -->
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.search.FaceSearchMNActivity"
+            android:exported="false"
+            android:theme="@style/AppTheme"
+            android:launchMode="singleTop" />
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.verify.FaceVerifyWelcomeActivity"
+            android:theme="@style/AppTheme"
+            android:exported="false">
+        </activity>
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.SysCamera.search.SearchNaviActivity"
+            android:theme="@style/AppTheme"
+            android:exported="false">
+        </activity>
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.FaceAISettingsActivity"
+            android:theme="@style/AppTheme"
+            android:exported="false">
+        </activity>
+
+        <!-- UVC Camera Activities -->
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.UVCCamera.search.FaceSearch_UVCCameraActivity"
+            android:theme="@style/FaceAITheme"
+            android:launchMode="singleTop"
+            android:exported="false" />
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.UVCCamera.verify.FaceVerify_UVCCameraActivity"
+            android:theme="@style/FaceAITheme"
+            android:launchMode="singleTop"
+            android:exported="false" />
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.UVCCamera.addFace.AddFace_UVCCameraActivity"
+            android:theme="@style/FaceAITheme"
+            android:exported="false" />
+
+        <activity
+            android:name="com.rezins.flutter_face_ai_sdk.UVCCamera.liveness.Liveness_UVCCameraActivity"
+            android:theme="@style/FaceAITheme"
+            android:exported="false" />
+    </application>
+</manifest>
