@@ -319,7 +319,7 @@ public class FaceVerificationActivity extends AbsBaseActivity {
                         //如果还配置了炫彩活体，最好语音提前提示靠近屏幕，以便彩色光达到脸上
                         Log.d("FaceVerification", "Starting color flash detection after motion");
                         VoicePlayer.getInstance().play(R.raw.closer_to_screen);
-                        setSecondTips(R.string.color_flash_need_closer_camera);
+                        //setSecondTips(R.string.color_flash_need_closer_camera);
                     }
                     break;
 
