@@ -34,6 +34,7 @@ class FaceAIHomePage extends StatefulWidget {
 
 class _FaceAIHomePageState extends State<FaceAIHomePage> {
   final _faceAiSdk = FlutterFaceAiSdk();
+  final _faceIdController = TextEditingController();
   String _platformVersion = 'Loading...';
   String _status = 'Not Initialized';
   String _lastEvent = 'No events';
@@ -53,6 +54,7 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
   @override
   void dispose() {
     _eventSubscription?.cancel();
+    _faceIdController.dispose();
     super.dispose();
   }
 
@@ -125,10 +127,40 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
       _showMessage('Initialize SDK first');
       return;
     }
+
+    // Get faceId from text field
+    final faceId = _faceIdController.text.trim();
+    if (faceId.isEmpty) {
+      _showMessage('Please enter Face ID first');
+      return;
+    }
+
     try {
-      await _faceAiSdk.startEnroll('base64');
+      print('🚀 Starting enrollment with faceId: $faceId');
+
+      // Call startEnroll with faceId
+      final faceFeature = await _faceAiSdk.startEnroll(faceId);
+
+      if (faceFeature != null) {
+        print('✅ Enrollment Success!');
+        print('📝 FaceID: $faceId');
+        print('🔑 Face Feature (first 100 chars): ${faceFeature.substring(0, faceFeature.length > 100 ? 100 : faceFeature.length)}...');
+        print('📏 Feature Length: ${faceFeature.length} characters');
+
+        // Update state
+        setState(() {
+          _enrolledFaceID = faceId;
+          _enrolledFaceData = faceFeature;
+        });
+
+        _showMessage('Enrollment Success! Check logs for feature');
+      } else {
+        print('❌ Enrollment returned null feature');
+        _showMessage('Enrollment failed: No feature returned');
+      }
     } catch (e) {
-      _showMessage('Enroll Failed');
+      print('❌ Enrollment Error: $e');
+      _showMessage('Enroll Failed: $e');
     }
   }
 
@@ -178,11 +210,12 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
         centerTitle: true,
         elevation: 1,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
             // Status Section
             Container(
               padding: const EdgeInsets.all(16),
@@ -214,6 +247,24 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
             ),
 
             const SizedBox(height: 24),
+
+            // Face ID Input
+            TextField(
+              controller: _faceIdController,
+              decoration: InputDecoration(
+                labelText: 'Face ID / Name',
+                hintText: 'Enter user ID (e.g., user123)',
+                prefixIcon: const Icon(Icons.badge),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+              enabled: _isInitialized,
+            ),
+
+            const SizedBox(height: 16),
 
             // Buttons
             ElevatedButton.icon(
@@ -316,7 +367,7 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
               ),
             ),
 
-            const Spacer(),
+            const SizedBox(height: 24),
 
             // Instructions
             Container(
@@ -345,6 +396,7 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

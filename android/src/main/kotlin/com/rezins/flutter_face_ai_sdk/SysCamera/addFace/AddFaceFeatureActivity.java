@@ -101,6 +101,19 @@ public class AddFaceFeatureActivity extends AbsBaseActivity {
         }
 
         Intent intent = getIntent(); // 获取发送过来的Intent对象
+
+        // Receive faceId from Flutter
+        if (intent != null && intent.hasExtra("FACE_ID_FROM_FLUTTER")) {
+            faceID = intent.getStringExtra("FACE_ID_FROM_FLUTTER");
+            Log.d("AddFaceActivity", "Received faceID from Flutter: " + faceID);
+        }
+
+        // Check if should skip dialog
+        if (intent != null && intent.getBooleanExtra("SKIP_DIALOG", false)) {
+            needConfirmAdd = false;
+            Log.d("AddFaceActivity", "Skip dialog mode enabled");
+        }
+
         if (intent != null) {
             if (intent.hasExtra(USER_FACE_ID_KEY)) {
                 faceID = intent.getStringExtra(USER_FACE_ID_KEY);
@@ -256,6 +269,34 @@ public class AddFaceFeatureActivity extends AbsBaseActivity {
      * @param bitmap 符合对应参数设置的SDK裁剪好的人脸图
      */
     private void confirmAddFaceDialog(Bitmap bitmap,String faceFeature) {
+        // Skip dialog if needConfirmAdd is false (from Flutter)
+        if (!needConfirmAdd) {
+            Log.d("AddFaceActivity", "Auto-confirming with faceID: " + faceID);
+
+            // Validate faceID
+            if (TextUtils.isEmpty(faceID)) {
+                Log.e("AddFaceActivity", "faceID is empty, cannot auto-confirm");
+                finishAddFace(0, "faceID is required", "");
+                return;
+            }
+
+            // Default to FACE_VERIFY if addFaceType is null
+            if (addFaceType == null) {
+                addFaceType = AddFaceImageTypeEnum.FACE_VERIFY.name();
+            }
+
+            // Auto save and finish
+            if (addFaceType.equals(AddFaceImageTypeEnum.FACE_VERIFY.name())) {
+                saveFaceVerifyData(bitmap, faceID, faceFeature);
+            } else {
+                saveFaceSearchData(bitmap, faceID, faceFeature);
+            }
+
+            finishAddFace(1, "Success", faceFeature);
+            return;
+        }
+
+        // Show dialog for manual confirmation (original behavior)
         ConfirmFaceDialog confirmFaceDialog=new ConfirmFaceDialog(this,bitmap);
 
         confirmFaceDialog.btnConfirm.setOnClickListener(v -> {

@@ -47,11 +47,15 @@ class MethodChannelFlutterFaceAiSdk extends FlutterFaceAiSdkPlatform {
   }
 
   @override
-  Future<void> startEnroll(String format) async {
-    await methodChannel.invokeMethod<void>(
+  Future<String?> startEnroll(String faceId, String format) async {
+    final result = await methodChannel.invokeMethod<String>(
       'startEnroll',
-      {'format': format},
+      {
+        'faceId': faceId,
+        'format': format,
+      },
     );
+    return result;
   }
 
   @override

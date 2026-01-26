@@ -39,7 +39,7 @@ abstract class FlutterFaceAiSdkPlatform extends PlatformInterface {
     throw UnimplementedError('addFace() has not been implemented.');
   }
 
-  Future<void> startEnroll(String format) {
+  Future<String?> startEnroll(String faceId, String format) {
     throw UnimplementedError('startEnroll() has not been implemented.');
   }
 

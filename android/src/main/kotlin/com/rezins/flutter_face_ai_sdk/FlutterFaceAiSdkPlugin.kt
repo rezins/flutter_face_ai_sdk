@@ -37,6 +37,7 @@ class FlutterFaceAiSdkPlugin :
     private var activity: Activity? = null
     private var activityBinding: ActivityPluginBinding? = null
     private var eventSink: EventChannel.EventSink? = null
+    private var pendingEnrollResult: Result? = null
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         methodChannel = MethodChannel(flutterPluginBinding.binaryMessenger, METHOD_CHANNEL)
@@ -99,16 +100,26 @@ class FlutterFaceAiSdkPlugin :
 
             "startEnroll" -> {
                 try {
-                    val format = call.argument<String>("format") ?: ""
-                    Log.d(TAG, "startEnroll with format: $format")
+                    val faceId = call.argument<String>("faceId") ?: ""
+                    val format = call.argument<String>("format") ?: "base64"
+                    Log.d(TAG, "startEnroll with faceId: $faceId, format: $format")
+
+                    if (faceId.isEmpty()) {
+                        result.error("ENROLL_ERROR", "faceId is required", null)
+                        return
+                    }
+
+                    // Store result callback for later use
+                    pendingEnrollResult = result
 
                     activity?.let { act ->
                         val intent = Intent(act, AddFaceFeatureActivity::class.java).apply {
                             putExtra("FACE_RESULT_FORMAT", format)
                             putExtra("ADD_FACE_IMAGE_TYPE_KEY", "FACE_VERIFY")
+                            putExtra("FACE_ID_FROM_FLUTTER", faceId)  // Pass faceId from Flutter
+                            putExtra("SKIP_DIALOG", true)  // Flag to skip dialog
                         }
                         act.startActivityForResult(intent, REQUEST_CODE_ENROLL)
-                        result.success(null)
                     } ?: result.error("ACTIVITY_NULL", "No activity available", null)
                 } catch (e: Exception) {
                     result.error("ENROLL_ERROR", e.message, null)
@@ -193,13 +204,18 @@ class FlutterFaceAiSdkPlugin :
     }
 
     private fun handleEnrollResult(resultCode: Int, data: Intent?) {
-        val eventData = if (resultCode == Activity.RESULT_OK) {
+        if (resultCode == Activity.RESULT_OK) {
             val faceFeature = data?.getStringExtra("faceFeature")
             val faceID = data?.getStringExtra("faceID")
             val msg = data?.getStringExtra("msg")
             Log.d(TAG, "Enroll success - faceID: $faceID, feature: ${faceFeature?.take(20)}...")
 
-            hashMapOf(
+            // Return face feature to Flutter via pending result
+            pendingEnrollResult?.success(faceFeature)
+            pendingEnrollResult = null
+
+            // Also send event for backward compatibility
+            val eventData = hashMapOf(
                 "event" to "Enrolled",
                 "code" to 1,
                 "result" to "success",
@@ -207,14 +223,20 @@ class FlutterFaceAiSdkPlugin :
                 "faceID" to faceID,
                 "message" to msg
             )
+            sendEvent(eventData)
         } else {
-            hashMapOf(
+            // Return error to Flutter
+            pendingEnrollResult?.error("ENROLL_FAILED", "Enrollment was cancelled or failed", null)
+            pendingEnrollResult = null
+
+            // Send failure event
+            val eventData = hashMapOf(
                 "event" to "Enrolled",
                 "code" to 0,
                 "result" to "fail"
             )
+            sendEvent(eventData)
         }
-        sendEvent(eventData)
     }
 
     private fun handleVerifyResult(resultCode: Int, data: Intent?) {
