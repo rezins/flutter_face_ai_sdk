@@ -186,16 +186,9 @@ public class FaceVerificationActivity extends AbsBaseActivity {
 
                     @Override
                     public void onColorFlash(int color) {
-                        Log.d("FaceVerification", "Color flash callback: " + color);
-                        if (color == -1) {
-                            Log.e("FaceVerification", "Flash detection error: -1");
-                            runOnUiThread(() -> {
-                                setMainTips(R.string.keep_face_visible);
-                                setSecondTips(R.string.color_flash_need_closer_camera);
-                            });
-                        } else {
-                            faceCoverView.setFlashColor(color);//设置炫彩颜色，不能在室外强光环境使用
-                        }
+                        setMainTips(R.string.keep_face_visible);
+                        //setSecondTips(R.string.color_flash_need_closer_camera);
+                        faceCoverView.setFlashColor(color);
                     }
 
                     //人脸识别，活体检测过程中的各种提示
