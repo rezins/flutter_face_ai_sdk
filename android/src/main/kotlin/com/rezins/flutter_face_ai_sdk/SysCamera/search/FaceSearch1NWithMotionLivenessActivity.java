@@ -82,8 +82,9 @@ public class FaceSearch1NWithMotionLivenessActivity extends AbsBaseActivity {
         binding.close.setOnClickListener(v -> finish());
 
         binding.tips.setOnClickListener(v -> {
-            startActivity(new Intent(this, FaceSearchImageMangerActivity.class)
-                    .putExtra("isAdd", false));
+            Toast.makeText(this, "Feature disabled (file selector library issue)", Toast.LENGTH_SHORT).show();
+            // startActivity(new Intent(this, FaceSearchImageMangerActivity.class)
+            //         .putExtra("isAdd", false));
         });
 
         SharedPreferences sharedPref = getSharedPreferences("FaceAISDK_SP", Context.MODE_PRIVATE);

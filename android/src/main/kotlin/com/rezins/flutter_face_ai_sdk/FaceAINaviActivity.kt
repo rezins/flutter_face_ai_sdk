@@ -19,9 +19,11 @@ import com.ai.face.faceVerify.verify.FaceVerifyUtils
 import com.rezins.flutter_face_ai_sdk.FaceAISettingsActivity.Companion.UVC_CAMERA_TYPE
 import com.rezins.flutter_face_ai_sdk.SysCamera.camera.CustomCameraActivity
 import com.rezins.flutter_face_ai_sdk.SysCamera.search.SearchNaviActivity
-import com.rezins.flutter_face_ai_sdk.SysCamera.verify.FaceVerifyWelcomeActivity
+// DISABLED: Uses file selector library
+// import com.rezins.flutter_face_ai_sdk.SysCamera.verify.FaceVerifyWelcomeActivity
 import com.rezins.flutter_face_ai_sdk.SysCamera.verify.LivenessDetectActivity
-import com.rezins.flutter_face_ai_sdk.SysCamera.verify.TwoFaceImageVerifyActivity
+// DISABLED: Uses file selector library
+// import com.rezins.flutter_face_ai_sdk.SysCamera.verify.TwoFaceImageVerifyActivity
 import com.rezins.flutter_face_ai_sdk.UVCCamera.liveness.Liveness_UVCCameraActivity
 import com.rezins.flutter_face_ai_sdk.base.utils.performance.DevicePerformance
 import com.rezins.flutter_face_ai_sdk.databinding.ActivityFaceAiNaviBinding
@@ -49,10 +51,11 @@ class FaceAINaviActivity : AppCompatActivity() {
         }
 
 
-        // 1:1 人脸识别
+        // 1:1 人脸识别 - DISABLED: Uses file selector library
         viewBinding.faceVerify.setOnClickListener {
-            val verifyIntent = Intent(baseContext, FaceVerifyWelcomeActivity::class.java)
-            startActivity(verifyIntent)
+            Toast.makeText(this, "Feature disabled (file selector library issue)", Toast.LENGTH_SHORT).show()
+            // val verifyIntent = Intent(baseContext, FaceVerifyWelcomeActivity::class.java)
+            // startActivity(verifyIntent)
         }
 
         // 人脸搜索(系统相机和UVC 摄像头都支持) Face Search(support System&UVC camera)
@@ -77,9 +80,10 @@ class FaceAINaviActivity : AppCompatActivity() {
             }
         }
 
-        // 两张静态人脸图中人脸相似度对比，two face image similarity compare
+        // 两张静态人脸图中人脸相似度对比，two face image similarity compare - DISABLED
         viewBinding.twoFaceVerify.setOnClickListener {
-            startActivity(Intent(this@FaceAINaviActivity, TwoFaceImageVerifyActivity::class.java))
+            Toast.makeText(this, "Feature disabled (file selector library issue)", Toast.LENGTH_SHORT).show()
+            // startActivity(Intent(this@FaceAINaviActivity, TwoFaceImageVerifyActivity::class.java))
         }
 
         // 分享FaceAISDK

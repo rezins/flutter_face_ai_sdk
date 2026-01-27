@@ -54,8 +54,9 @@ public class FaceSearchMNActivity extends AbsBaseActivity {
         setContentView(binding.getRoot());
 
         binding.tips.setOnClickListener(v -> {
-            startActivity(new Intent(this, FaceSearchImageMangerActivity.class)
-                    .putExtra("isAdd", false));
+            Toast.makeText(this, "Feature disabled (file selector library issue)", Toast.LENGTH_SHORT).show();
+            // startActivity(new Intent(this, FaceSearchImageMangerActivity.class)
+            //         .putExtra("isAdd", false));
         });
 
         SharedPreferences sharedPref = getSharedPreferences("FaceAISDK_SP", Context.MODE_PRIVATE);

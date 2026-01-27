@@ -19,12 +19,14 @@
             android:exported="false">
         </activity>
 
+        <!-- DISABLED: Uses file selector library that causes R8 issues
         <activity
             android:name="com.rezins.flutter_face_ai_sdk.SysCamera.verify.TwoFaceImageVerifyActivity"
             android:configChanges="orientation"
             android:theme="@style/FaceAITheme"
             android:exported="false">
         </activity>
+        -->
 
         <activity
             android:name="com.rezins.flutter_face_ai_sdk.SysCamera.verify.LivenessDetectActivity"
@@ -44,11 +46,13 @@
             android:theme="@style/AppTheme"
             android:exported="false" />
 
+        <!-- DISABLED: Uses file selector library that causes R8 issues
         <activity
             android:name="com.rezins.flutter_face_ai_sdk.SysCamera.search.FaceSearchImageMangerActivity"
             android:theme="@style/AppTheme"
             android:exported="false">
         </activity>
+        -->
 
         <activity
             android:name="com.rezins.flutter_face_ai_sdk.SysCamera.verify.FaceVerificationActivity"
@@ -81,11 +85,13 @@
             android:theme="@style/AppTheme"
             android:launchMode="singleTop" />
 
+        <!-- DISABLED: Uses file selector library that causes R8 issues
         <activity
             android:name="com.rezins.flutter_face_ai_sdk.SysCamera.verify.FaceVerifyWelcomeActivity"
             android:theme="@style/AppTheme"
             android:exported="false">
         </activity>
+        -->
 
         <activity
             android:name="com.rezins.flutter_face_ai_sdk.SysCamera.search.SearchNaviActivity"

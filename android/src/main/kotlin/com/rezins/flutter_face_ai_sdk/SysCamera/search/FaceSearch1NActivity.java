@@ -23,7 +23,8 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.os.Bundle;
 import android.util.Log;
-import com.rezins.flutter_face_ai_sdk.SysCamera.search.FaceSearchImageMangerActivity;
+// DISABLED: Uses file selector library
+// import com.rezins.flutter_face_ai_sdk.SysCamera.search.FaceSearchImageMangerActivity;
 import android.view.View;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -108,8 +109,9 @@ public class FaceSearch1NActivity extends AbsBaseActivity {
         binding.close.setOnClickListener(v -> finish());
 
         binding.tips.setOnClickListener(v -> {
-            startActivity(new Intent(this, FaceSearchImageMangerActivity.class)
-                    .putExtra("isAdd", false));
+            Toast.makeText(this, "Feature disabled (file selector library issue)", Toast.LENGTH_SHORT).show();
+            // startActivity(new Intent(this, FaceSearchImageMangerActivity.class)
+            //         .putExtra("isAdd", false));
         });
 
         getIntentParams(); //接收三方插件传递的参数，原生开发可以忽略裁剪掉

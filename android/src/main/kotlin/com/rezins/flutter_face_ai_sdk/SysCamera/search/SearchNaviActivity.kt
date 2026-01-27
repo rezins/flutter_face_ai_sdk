@@ -75,9 +75,10 @@ class SearchNaviActivity : AppCompatActivity(), PermissionCallbacks {
         }
 
         binding.systemCameraAddFace.setOnClickListener {
-            startActivity(
-                Intent(baseContext, FaceSearchImageMangerActivity::class.java)
-                    .putExtra("isAdd", true))
+            Toast.makeText(this, "Feature disabled (file selector library issue)", Toast.LENGTH_SHORT).show()
+            // startActivity(
+            //     Intent(baseContext, FaceSearchImageMangerActivity::class.java)
+            //         .putExtra("isAdd", true))
         }
 
         binding.uvcUsbCameraSearch.setOnClickListener {
@@ -85,10 +86,11 @@ class SearchNaviActivity : AppCompatActivity(), PermissionCallbacks {
         }
 
         binding.uvcUsbCameraAddFace.setOnClickListener {
-            startActivity(
-                Intent(baseContext, FaceSearchImageMangerActivity::class.java)
-                    .putExtra("isAdd", true)
-            )
+            Toast.makeText(this, "Feature disabled (file selector library issue)", Toast.LENGTH_SHORT).show()
+            // startActivity(
+            //     Intent(baseContext, FaceSearchImageMangerActivity::class.java)
+            //         .putExtra("isAdd", true)
+            // )
         }
 
         //验证复制图片
@@ -131,12 +133,13 @@ class SearchNaviActivity : AppCompatActivity(), PermissionCallbacks {
         }
 
         binding.editFaceImage.setOnClickListener {
-            startActivity(
-                Intent(baseContext, FaceSearchImageMangerActivity::class.java).putExtra(
-                    "isAdd",
-                    false
-                )
-            )
+            Toast.makeText(this, "Feature disabled (file selector library issue)", Toast.LENGTH_SHORT).show()
+            // startActivity(
+            //     Intent(baseContext, FaceSearchImageMangerActivity::class.java).putExtra(
+            //         "isAdd",
+            //         false
+            //     )
+            // )
         }
     }
 

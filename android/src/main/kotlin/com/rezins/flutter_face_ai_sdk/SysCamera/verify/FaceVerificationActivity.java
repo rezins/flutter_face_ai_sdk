@@ -58,6 +58,7 @@ import com.tencent.mmkv.MMKV;
  */
 public class FaceVerificationActivity extends AbsBaseActivity {
     public static final String FACE_DATA_KEY = "FACE_DATA_KEY";         //Face data for verification
+    public static final String FACE_FEATURES_KEY = "FACE_FEATURES_KEY"; //Multiple face features (comma-separated)
     public static final String USER_FACE_ID_KEY = "USER_FACE_ID_KEY";   //1:1 face verify ID KEY
     public static final String THRESHOLD_KEY = "THRESHOLD_KEY";           //人脸识别通过的阈值
     public static final String FACE_LIVENESS_TYPE = "FACE_LIVENESS_TYPE";   //活体检测的类型
@@ -74,6 +75,10 @@ public class FaceVerificationActivity extends AbsBaseActivity {
     private TextView tipsTextView, secondTipsTextView;
     private FaceVerifyCoverView faceCoverView;
     private FaceCameraXFragment cameraXFragment;  //摄像头管理源码，可自行管理摄像头
+
+    // Multi-face feature support
+    private java.util.List<String> faceFeatureList = new java.util.ArrayList<>();
+    private int currentFaceFeatureIndex = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -123,32 +128,55 @@ public class FaceVerificationActivity extends AbsBaseActivity {
      * //人脸图片和人脸特征向量不方便传递，以及相关法律法规不允许明文传输。注意数据迁移
      */
     private void initFaceVerifyFeature() {
-        String faceFeature = null;
-
-        // Priority 1: Check if faceFeature passed from Flutter via intent (from database)
         Intent intent = getIntent();
-        if (intent != null && intent.hasExtra(FACE_DATA_KEY)) {
-            faceFeature = intent.getStringExtra(FACE_DATA_KEY);
-            Log.d("FaceVerification", "Using faceFeature from Flutter (first 50 chars): " +
-                (faceFeature != null ? faceFeature.substring(0, Math.min(50, faceFeature.length())) : "null"));
+
+        // Priority 1: Check if multiple face features passed from Flutter via intent
+        if (intent != null && intent.hasExtra(FACE_FEATURES_KEY)) {
+            String faceFeatures = intent.getStringExtra(FACE_FEATURES_KEY);
+            if (!TextUtils.isEmpty(faceFeatures)) {
+                // Split by delimiter (using "|||" as separator to avoid conflicts)
+                String[] features = faceFeatures.split("\\|\\|\\|");
+                for (String feature : features) {
+                    if (!TextUtils.isEmpty(feature.trim())) {
+                        faceFeatureList.add(feature.trim());
+                    }
+                }
+                Log.d("FaceVerification", "Loaded " + faceFeatureList.size() + " face features from Flutter");
+            }
         }
 
-        // Priority 2: Fallback - Read from MMKV by faceID (old behavior)
-        if (TextUtils.isEmpty(faceFeature) && !TextUtils.isEmpty(faceID)) {
+        // Priority 2: Check if single faceFeature passed from Flutter via intent (backward compatibility)
+        if (faceFeatureList.isEmpty() && intent != null && intent.hasExtra(FACE_DATA_KEY)) {
+            String faceFeature = intent.getStringExtra(FACE_DATA_KEY);
+            if (!TextUtils.isEmpty(faceFeature)) {
+                faceFeatureList.add(faceFeature);
+                Log.d("FaceVerification", "Using single faceFeature from Flutter (first 50 chars): " +
+                    faceFeature.substring(0, Math.min(50, faceFeature.length())));
+            }
+        }
+
+        // Priority 3: Fallback - Read from MMKV by faceID (old behavior)
+        if (faceFeatureList.isEmpty() && !TextUtils.isEmpty(faceID)) {
             //老的数据
             float[] faceEmbeddingOld = FaceEmbedding.loadEmbedding(getBaseContext(), faceID);
             String faceFeatureOld = FaceAISDKEngine.getInstance(this).faceArray2Feature(faceEmbeddingOld);
 
             //从本地MMKV读取人脸特征值(2025.11.23版本使用MMKV，老的人脸数据请做好迁移)
-            faceFeature = MMKV.defaultMMKV().decodeString(faceID);
+            String faceFeature = MMKV.defaultMMKV().decodeString(faceID);
             if (TextUtils.isEmpty(faceFeature) && !TextUtils.isEmpty(faceFeatureOld)) {
                 faceFeature = faceFeatureOld;
             }
+
+            if (!TextUtils.isEmpty(faceFeature)) {
+                faceFeatureList.add(faceFeature);
+            }
         }
 
-        // Initialize verification with faceFeature
-        if (!TextUtils.isEmpty(faceFeature)) {
-            initFaceVerificationParam(faceFeature);
+        // Initialize verification with first faceFeature
+        if (!faceFeatureList.isEmpty()) {
+            currentFaceFeatureIndex = 0;
+            initFaceVerificationParam(faceFeatureList.get(currentFaceFeatureIndex));
+            Log.d("FaceVerification", "Starting verification with face feature index: " + currentFaceFeatureIndex);
         } else {
             //根据你的业务进行提示去录入人脸 提取特征，服务器有提前同步到本地
             Toast.makeText(getBaseContext(), "faceFeature isEmpty ! ", Toast.LENGTH_LONG).show();
@@ -260,17 +288,47 @@ public class FaceVerificationActivity extends AbsBaseActivity {
             VoicePlayer.getInstance().addPayList(R.raw.verify_success);
             new ImageToast().show(getApplicationContext(), bitmap, "Success " + similarity);
 
+            Log.d("FaceVerification", "Verification SUCCESS with face feature index: " +
+                  currentFaceFeatureIndex + ", similarity: " + similarity);
+
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 finishFaceVerify(1, R.string.face_verify_result_success, similarity);
             }, 1500);
         } else {
-            //3.和底片不是同一个人 - langsung finish tanpa dialog
-            VoicePlayer.getInstance().addPayList(R.raw.verify_failed);
-            new ImageToast().show(getApplicationContext(), bitmap, "Failed " + similarity);
+            //3.和底片不是同一个人 - 尝试下一个 face feature
+            Log.d("FaceVerification", "Verification FAILED with face feature index: " +
+                  currentFaceFeatureIndex + ", similarity: " + similarity);
 
-            new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                finishFaceVerify(2, R.string.face_verify_result_failed, similarity);
-            }, 1500);
+            // Check if there are more face features to try
+            if (currentFaceFeatureIndex < faceFeatureList.size() - 1) {
+                currentFaceFeatureIndex++;
+                Log.d("FaceVerification", "Trying next face feature, index: " + currentFaceFeatureIndex);
+
+                // Reset retry time for new face feature
+                retryTime = 0;
+
+                // Destroy current verification process
+                faceVerifyUtils.destroyProcess();
+
+                // Initialize with next face feature
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    initFaceVerificationParam(faceFeatureList.get(currentFaceFeatureIndex));
+                    faceVerifyUtils.retryVerify();
+                    setMainTips(R.string.keep_face_visible);
+                }, 500);
+
+            } else {
+                // All face features tried, verification failed
+                Log.d("FaceVerification", "All face features tried (" + faceFeatureList.size() +
+                      "), verification FAILED");
+
+                VoicePlayer.getInstance().addPayList(R.raw.verify_failed);
+                new ImageToast().show(getApplicationContext(), bitmap, "Failed " + similarity);
+
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    finishFaceVerify(2, R.string.face_verify_result_failed, similarity);
+                }, 1500);
+            }
         }
 
     }
@@ -483,10 +541,31 @@ public class FaceVerificationActivity extends AbsBaseActivity {
     private void getIntentParams() {
         Intent intent = getIntent(); // 获取发送过来的Intent对象
         if (intent != null) {
+            // Handle faceID - Note: FACE_DATA_KEY can be either faceID or single faceFeature
+            // depending on implementation. For multi-feature, use FACE_FEATURES_KEY
             if (intent.hasExtra(FACE_DATA_KEY)) {
-                faceID = intent.getStringExtra(FACE_DATA_KEY);
-            } else {
-                Toast.makeText(this, R.string.input_face_id_tips, Toast.LENGTH_LONG).show();
+                String faceData = intent.getStringExtra(FACE_DATA_KEY);
+                // Check if it looks like a face feature (long string) or faceID (short identifier)
+                if (faceData != null && faceData.length() < 100) {
+                    // Likely a faceID
+                    faceID = faceData;
+                } else {
+                    // Likely a face feature, will be handled in initFaceVerifyFeature()
+                    faceID = "user"; // default faceID
+                }
+            }
+
+            if (intent.hasExtra(USER_FACE_ID_KEY)) {
+                faceID = intent.getStringExtra(USER_FACE_ID_KEY);
+            }
+
+            if (TextUtils.isEmpty(faceID)) {
+                // If no faceID provided but has face features, use default
+                if (intent.hasExtra(FACE_FEATURES_KEY) || intent.hasExtra(FACE_DATA_KEY)) {
+                    faceID = "user"; // default faceID for face feature verification
+                } else {
+                    Toast.makeText(this, R.string.input_face_id_tips, Toast.LENGTH_LONG).show();
+                }
             }
 
             if (intent.hasExtra(THRESHOLD_KEY)) {

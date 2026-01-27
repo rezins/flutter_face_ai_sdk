@@ -143,21 +143,31 @@ class FlutterFaceAiSdkPlugin :
                         return
                     }
 
-                    // Always use first item (index 0)
-                    val faceFeature = faceFeatures[0]
-                    Log.d(TAG, "Using faceFeature (first 50 chars): ${faceFeature.take(50)}...")
-
-                    if (faceFeature.isEmpty()) {
-                        result.error("VERIFY_ERROR", "Face feature at index 0 is empty", null)
+                    // Remove empty features
+                    val validFeatures = faceFeatures.filter { it.isNotEmpty() }
+                    if (validFeatures.isEmpty()) {
+                        result.error("VERIFY_ERROR", "All face features are empty", null)
                         return
                     }
+
+                    Log.d(TAG, "Valid face features count: ${validFeatures.size}")
 
                     // Store result callback for later use
                     pendingVerifyResult = result
 
                     activity?.let { act ->
                         val intent = Intent(act, FaceVerificationActivity::class.java).apply {
-                            putExtra(FaceVerificationActivity.FACE_DATA_KEY, faceFeature)  // Pass face feature directly
+                            // If multiple face features, join with delimiter and use FACE_FEATURES_KEY
+                            // If single feature, use FACE_DATA_KEY for backward compatibility
+                            if (validFeatures.size > 1) {
+                                val combinedFeatures = validFeatures.joinToString("|||")
+                                putExtra(FaceVerificationActivity.FACE_FEATURES_KEY, combinedFeatures)
+                                Log.d(TAG, "Using multiple face features (${validFeatures.size} features)")
+                            } else {
+                                putExtra(FaceVerificationActivity.FACE_DATA_KEY, validFeatures[0])
+                                Log.d(TAG, "Using single face feature (first 50 chars): ${validFeatures[0].take(50)}...")
+                            }
+
                             putExtra(FaceVerificationActivity.FACE_LIVENESS_TYPE, livenessType)
                             putExtra(FaceVerificationActivity.MOTION_STEP_SIZE, motionStepSize)
                             putExtra(FaceVerificationActivity.MOTION_TIMEOUT, motionTimeout)
