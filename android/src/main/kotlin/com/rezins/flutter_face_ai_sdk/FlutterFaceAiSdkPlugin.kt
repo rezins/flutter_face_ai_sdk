@@ -268,10 +268,20 @@ class FlutterFaceAiSdkPlugin :
             val faceID = data?.getStringExtra("faceID")
             val msg = data?.getStringExtra("msg")
             val similarity = data?.getFloatExtra("similarity", 0f) ?: 0f
-            Log.d(TAG, "Verify result - code: $code, faceID: $faceID, similarity: $similarity")
+            val capturedImagePath = data?.getStringExtra("CAPTURED_IMAGE_PATH") ?: "Not Verify"
 
-            // Return result string to Flutter via pending result
-            val result = if (code == 1) "Verify" else "Not Verify"
+            Log.d(TAG, "Verify result - code: $code, faceID: $faceID, similarity: $similarity")
+            Log.d(TAG, "Captured image path: $capturedImagePath")
+
+            // Return image path or "Not Verify" to Flutter via pending result
+            // If verification success (code == 1), return the image path
+            // Otherwise, return "Not Verify"
+            val result = if (code == 1 && capturedImagePath != "Not Verify") {
+                capturedImagePath // Return the full path to captured image
+            } else {
+                "Not Verify"
+            }
+
             pendingVerifyResult?.success(result)
             pendingVerifyResult = null
 
@@ -282,7 +292,8 @@ class FlutterFaceAiSdkPlugin :
                 "result" to if (code == 1) "success" else "fail",
                 "faceID" to faceID,
                 "message" to msg,
-                "similarity" to similarity
+                "similarity" to similarity,
+                "imagePath" to capturedImagePath
             )
             sendEvent(eventData)
 

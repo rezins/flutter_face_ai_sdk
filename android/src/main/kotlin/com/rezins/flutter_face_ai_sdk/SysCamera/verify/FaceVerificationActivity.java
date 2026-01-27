@@ -65,6 +65,7 @@ public class FaceVerificationActivity extends AbsBaseActivity {
     public static final String MOTION_STEP_SIZE = "MOTION_STEP_SIZE";   //动作活体的步骤数
     public static final String MOTION_TIMEOUT = "MOTION_TIMEOUT";   //动作活体超时数据
     public static final String MOTION_LIVENESS_TYPES = "MOTION_LIVENESS_TYPES"; //动作活体种类
+    public static final String CAPTURED_IMAGE_PATH = "CAPTURED_IMAGE_PATH"; //Captured image path for attendance
     private String faceID; //你的业务系统中可以唯一定义一个账户的ID，手机号/身份证号等
     private float verifyThreshold = 0.86f; //1:1 人脸识别对比通过的阈值，根据使用场景自行调整
     private int motionStepSize = 2; //动作活体的个数
@@ -279,6 +280,51 @@ public class FaceVerificationActivity extends AbsBaseActivity {
      * 动作活体要有动作配合，必须先动作匹配通过再1：1 匹配
      */
     private int retryTime = 0;
+    private String capturedImagePath = null; // Store captured image path
+
+    /**
+     * Capture and save face image for attendance with ORIGINAL resolution (no scaling, no crop)
+     * @param bitmap The face bitmap to save (original resolution)
+     * @param faceID The face ID for naming the file
+     * @return The full path to the saved image, or null if failed
+     */
+    private String captureFaceImageForAttendance(Bitmap bitmap, String faceID) {
+        try {
+            if (bitmap == null) {
+                Log.e("FaceVerification", "Bitmap is null, cannot capture image");
+                return null;
+            }
+
+            // Create directory if not exists
+            java.io.File directory = new java.io.File(CACHE_FACE_LOG_DIR);
+            if (!directory.exists()) {
+                directory.mkdirs();
+            }
+
+            // Create unique filename with timestamp
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            String fileName = "attendance_" + (faceID != null ? faceID : "unknown") + "_" + timestamp + ".jpg";
+
+            // Create full path
+            java.io.File imageFile = new java.io.File(directory, fileName);
+            String fullPath = imageFile.getAbsolutePath();
+
+            // Save the bitmap with ORIGINAL resolution (no scaling)
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(imageFile);
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);  // Save original bitmap directly
+            fos.flush();
+            fos.close();
+
+            Log.d("FaceVerification", "Face image captured for attendance (original resolution): " + fullPath);
+            Log.d("FaceVerification", "Original image size: " + bitmap.getWidth() + "x" + bitmap.getHeight() + " pixels");
+            return fullPath;
+
+        } catch (Exception e) {
+            Log.e("FaceVerification", "Error capturing face image: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
 
     private void showVerifyResult(boolean isVerifyMatched, float similarity, Bitmap bitmap) {
         BitmapUtils.saveScaledBitmap(bitmap, CACHE_FACE_LOG_DIR, "verifyBitmap");//保存场景图给三方插件使用
@@ -290,6 +336,9 @@ public class FaceVerificationActivity extends AbsBaseActivity {
 
             Log.d("FaceVerification", "Verification SUCCESS with face feature index: " +
                   currentFaceFeatureIndex + ", similarity: " + similarity);
+
+            // Capture face image for attendance
+            capturedImagePath = captureFaceImageForAttendance(bitmap, faceID);
 
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 finishFaceVerify(1, R.string.face_verify_result_success, similarity);
@@ -623,6 +672,22 @@ public class FaceVerificationActivity extends AbsBaseActivity {
                 .putExtra("faceID", faceID)
                 .putExtra("msg", getString(msgStrRes))
                 .putExtra("similarity", similarity);
+
+        // Add captured image path or "Not Verify" status
+        if (code == 1 && capturedImagePath != null && !capturedImagePath.isEmpty()) {
+            // Verification success - return image path
+            intent.putExtra(CAPTURED_IMAGE_PATH, capturedImagePath);
+            Log.d("FaceVerification", "Returning image path: " + capturedImagePath);
+        } else if (code == 2 || code == 4 || code == 5 || code == 8 || code == 9) {
+            // Verification failed - return "Not Verify"
+            intent.putExtra(CAPTURED_IMAGE_PATH, "Not Verify");
+            Log.d("FaceVerification", "Returning: Not Verify");
+        } else {
+            // Other cases (cancel, etc.) - return "Not Verify"
+            intent.putExtra(CAPTURED_IMAGE_PATH, "Not Verify");
+            Log.d("FaceVerification", "Returning: Not Verify (code: " + code + ")");
+        }
+
         setResult(RESULT_OK, intent);
         finish();
     }

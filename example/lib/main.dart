@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_face_ai_sdk/flutter_face_ai_sdk.dart';
@@ -54,6 +55,9 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
   String? _enrolledFaceID;
   bool _isInitialized = false;
   int _livenessType = 1; // 0: NONE, 1: MOTION, 2: COLOR_FLASH_MOTION, 3: COLOR_FLASH
+  int _motionStepSize = 2; // Motion liveness step size (1-2)
+  int _motionTimeout = 9; // Motion liveness timeout in seconds (3-22)
+  double _threshold = 0.85; // Face verification threshold (0.75-0.95)
   //StreamSubscription<Map<String, dynamic>>? _eventSubscription;
 
   @override
@@ -216,22 +220,244 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
       final result = await _faceAiSdk.startVerify(
         faceFeatures,  // Pass entire list of face features
         livenessType: _livenessType,
-        motionStepSize: 2,
-        motionTimeout: 9,
-        threshold: 0.85,
+        motionStepSize: _motionStepSize,
+        motionTimeout: _motionTimeout,
+        threshold: _threshold,
       );
 
       print('✅ Verification Result: $result');
 
-      if (result == 'Verify') {
-        _showMessage('✓ Verified! (Matched with one of ${_enrolledFaces.length} faces)');
-      } else {
+      // Check if result is "Not Verify" (failed) or image path (success)
+      if (result == 'Not Verify') {
+        print('❌ Verification FAILED');
         _showMessage('✗ Not Verified (Tried ${_enrolledFaces.length} faces)');
+      } else {
+        // Success! Result contains the captured image path
+        print('✅ Verification SUCCESS!');
+        print('📸 Captured image path: $result');
+        _showMessage('✓ Verified! Image saved at: ${result?.split('/').last}');
+
+        // You can now use the image path for attendance or other purposes
+        // For example: Upload to server, save to database, etc.
+        _showAttendanceDialog(result ?? '');
       }
     } catch (e) {
       print('❌ Verification Error: $e');
       _showMessage('Verify Failed: $e');
     }
+  }
+
+  void _showAttendanceDialog(String imagePath) {
+    // Check if file exists
+    final imageFile = File(imagePath);
+    final fileExists = imageFile.existsSync();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green[600], size: 28),
+            const SizedBox(width: 8),
+            const Text('Attendance Recorded'),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Face verification successful!',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Image Preview Section
+              if (fileExists) ...[
+                const Text(
+                  'Captured Image:',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: Container(
+                    width: 200,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.green[300]!, width: 3),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(
+                        imageFile,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error_outline,
+                                  color: Colors.red[300],
+                                  size: 48,
+                                ),
+                                const SizedBox(height: 8),
+                                const Text(
+                                  'Failed to load image',
+                                  style: TextStyle(fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ] else ...[
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.orange[300]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.warning_amber_rounded,
+                        color: Colors.orange[700],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          'Image file not found',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
+
+              // File Path Section
+              const Text(
+                'File Path:',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      imagePath,
+                      style: const TextStyle(
+                        fontSize: 9,
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(
+                          fileExists ? Icons.check_circle : Icons.cancel,
+                          size: 14,
+                          color: fileExists ? Colors.green : Colors.red,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          fileExists ? 'File exists' : 'File not found',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: fileExists ? Colors.green[700] : Colors.red[700],
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Action Items
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Next Steps:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.blue[900],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _NextStepItem('Upload to server'),
+                    _NextStepItem('Save to database'),
+                    _NextStepItem('Record attendance log'),
+                    _NextStepItem('Send notification'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton.icon(
+            onPressed: () {
+              // Copy path to clipboard
+              Clipboard.setData(ClipboardData(text: imagePath));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Path copied to clipboard'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+            icon: const Icon(Icons.copy, size: 18),
+            label: const Text('Copy Path'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _startLivenessTest() async {
@@ -242,8 +468,8 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
     try {
       await _faceAiSdk.startLivenessDetection(
         livenessType: _livenessType,
-        motionStepSize: 2,
-        motionTimeout: 9,
+        motionStepSize: _motionStepSize,
+        motionTimeout: _motionTimeout,
       );
     } catch (e) {
       _showMessage('Liveness Test Failed: $e');
@@ -371,6 +597,21 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
                   ),
                   const SizedBox(height: 8),
                   _InfoText('Last Event', _lastEvent),
+                  const SizedBox(height: 12),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Current Settings:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  _InfoText('Motion Steps', '$_motionStepSize'),
+                  _InfoText('Timeout', '${_motionTimeout}s'),
+                  _InfoText('Threshold', _threshold.toStringAsFixed(2)),
                 ],
               ),
             ),
@@ -666,6 +907,218 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
               ),
             ),
 
+            const SizedBox(height: 16),
+
+            // Motion Step Size Selector
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Motion Step Size:',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[600],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '$_motionStepSize',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Slider(
+                          value: _motionStepSize.toDouble(),
+                          min: 1,
+                          max: 2,
+                          divisions: 1,
+                          label: '$_motionStepSize steps',
+                          onChanged: (value) {
+                            setState(() => _motionStepSize = value.toInt());
+                          },
+                        ),
+                      ),
+                      Text(
+                        '${_motionStepSize} step${_motionStepSize > 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Motion Timeout Selector
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Motion Timeout:',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.orange[600],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '${_motionTimeout}s',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Slider(
+                          value: _motionTimeout.toDouble(),
+                          min: 3,
+                          max: 22,
+                          divisions: 19,
+                          label: '${_motionTimeout}s',
+                          onChanged: (value) {
+                            setState(() => _motionTimeout = value.toInt());
+                          },
+                        ),
+                      ),
+                      Text(
+                        '${_motionTimeout} seconds',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Threshold Selector
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text(
+                        'Verification Threshold:',
+                        style: TextStyle(fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green[600],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          _threshold.toStringAsFixed(2),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Slider(
+                          value: _threshold,
+                          min: 0.75,
+                          max: 0.95,
+                          divisions: 20,
+                          label: _threshold.toStringAsFixed(2),
+                          onChanged: (value) {
+                            setState(() => _threshold = value);
+                          },
+                        ),
+                      ),
+                      Text(
+                        _threshold.toStringAsFixed(2),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[700],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Higher threshold = stricter matching',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             const SizedBox(height: 24),
 
             // Instructions
@@ -687,17 +1140,18 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
                   ),
                   const SizedBox(height: 8),
                   _InstructionText('1. Initialize SDK'),
-                  _InstructionText('2. Enter Face ID and select liveness type'),
-                  _InstructionText('3. Enroll multiple faces (repeat step 3)'),
-                  _InstructionText('4. Verify with any enrolled face'),
-                  _InstructionText('5. Clear all when done'),
+                  _InstructionText('2. Enter Face ID and adjust settings'),
+                  _InstructionText('3. Configure liveness, motion steps, timeout, threshold'),
+                  _InstructionText('4. Enroll multiple faces (repeat as needed)'),
+                  _InstructionText('5. Verify with any enrolled face'),
+                  _InstructionText('6. Check captured image path on success'),
                 ],
               ),
             ),
 
             const SizedBox(height: 16),
 
-            // Multi-Face Info
+            // Configuration Info
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -705,20 +1159,29 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.amber[200]!),
               ),
-              child: Row(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.info_outline, color: Colors.amber[800], size: 20),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Multi-Face Feature: You can enroll multiple faces. During verification, the system will automatically try matching with all enrolled faces.',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.amber[900],
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.amber[800], size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Configuration Guide',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.amber[900],
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
+                    ],
                   ),
+                  const SizedBox(height: 8),
+                  _ConfigInfoText('• Multi-Face: Enroll multiple faces, system tries all during verification'),
+                  _ConfigInfoText('• Motion Steps: 1-2 steps (more steps = stricter verification)'),
+                  _ConfigInfoText('• Timeout: 3-22 seconds (longer timeout = more time for user)'),
+                  _ConfigInfoText('• Threshold: 0.75-0.95 (higher = stricter matching)'),
+                  _ConfigInfoText('• Success: Returns captured image path for attendance'),
                 ],
               ),
             ),
@@ -836,6 +1299,56 @@ class _DetailRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ConfigInfoText extends StatelessWidget {
+  final String text;
+
+  const _ConfigInfoText(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11,
+          color: Colors.amber[900],
+        ),
+      ),
+    );
+  }
+}
+
+class _NextStepItem extends StatelessWidget {
+  final String text;
+
+  const _NextStepItem(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          Icon(
+            Icons.check_circle_outline,
+            size: 16,
+            color: Colors.blue[700],
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.blue[800],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
