@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(flutter clean:*)"
+      "Bash(flutter clean:*)",
+      "Bash(pod install:*)",
+      "Bash(flutter build:*)",
+      "Bash(flutter pub get:*)",
+      "Bash(flutter run:*)",
+      "Bash(flutter devices:*)",
+      "Bash(tee:*)"
     ]
   }
 }
