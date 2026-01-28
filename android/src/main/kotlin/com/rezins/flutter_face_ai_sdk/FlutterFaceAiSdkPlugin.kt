@@ -283,6 +283,10 @@ class FlutterFaceAiSdkPlugin :
                     // User cancelled - return null
                     null
                 }
+                4 -> {
+                    // User cancelled - return null
+                    "Timeout"
+                }
                 else -> {
                     // Verification failed - return "Not Verify"
                     "Not Verify"

@@ -674,10 +674,13 @@ public class FaceVerificationActivity extends AbsBaseActivity {
             // Verification success - return image path
             intent.putExtra(CAPTURED_IMAGE_PATH, capturedImagePath);
             Log.d("FaceVerification", "Returning image path: " + capturedImagePath);
-        } else if (code == 2 || code == 4 || code == 5 || code == 8 || code == 9) {
+        } else if (code == 2 || code == 5 || code == 8 || code == 9) {
             // Verification failed - return "Not Verify"
             intent.putExtra(CAPTURED_IMAGE_PATH, "Not Verify");
             Log.d("FaceVerification", "Returning: Not Verify");
+        } else if(code == 4 ){
+            intent.putExtra(CAPTURED_IMAGE_PATH, "Timeout");
+            Log.d("FaceVerification", "Returning: null (user cancelled)");
         } else if (code == 0) {
             // User cancelled/backed out - return null
             intent.putExtra(CAPTURED_IMAGE_PATH, (String) null);
