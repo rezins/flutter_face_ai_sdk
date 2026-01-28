@@ -14,6 +14,7 @@
     <string name="cancel">Batal</string>
     <string name="know">Saya Mengerti</string>
     <string name="retry">Coba Lagi</string>
+    <string name="quit">Keluar</string>
     <string name="long_press_copy_msg">Tips: Tekan lama untuk menyalin pesan</string>
     <string name="share_faceai_sdk">Bagikan FaceAISDK</string>
     <string name="facesdk_camera_permission">Verifikasi Wajah Memerlukan Izin Kamera</string>

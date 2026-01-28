@@ -450,13 +450,8 @@ public class FaceVerificationActivity extends AbsBaseActivity {
                     new AlertDialog.Builder(this)
                             .setMessage(R.string.motion_liveness_detection_time_out)
                             .setCancelable(false)
-                            .setPositiveButton(R.string.retry, (dialogInterface, i) -> {
-                                retryTime++;
-                                if (retryTime > 1) {
-                                    finishFaceVerify(4, R.string.face_verify_result_timeout);
-                                } else {
-                                    faceVerifyUtils.retryVerify();
-                                }
+                            .setPositiveButton(R.string.quit, (dialogInterface, i) -> {
+                                finishFaceVerify(4, R.string.face_verify_result_timeout);
                             }).show();
                     break;
 
