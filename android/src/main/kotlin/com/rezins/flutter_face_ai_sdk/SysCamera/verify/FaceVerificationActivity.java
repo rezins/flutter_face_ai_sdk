@@ -668,6 +668,7 @@ public class FaceVerificationActivity extends AbsBaseActivity {
                 .putExtra("msg", getString(msgStrRes))
                 .putExtra("similarity", similarity);
 
+        Log.d("FaceVerification", "code: " + code);
         // Add captured image path or "Not Verify" status
         if (code == 1 && capturedImagePath != null && !capturedImagePath.isEmpty()) {
             // Verification success - return image path

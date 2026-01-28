@@ -227,19 +227,22 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
 
       print('✅ Verification Result: $result');
 
-      // Check if result is "Not Verify" (failed) or image path (success)
-      if (result == 'Not Verify') {
+      // Handle three cases: null (cancelled), "Not Verify" (failed), or image path (success)
+      if (result == null) {
+        print('⚠️ Verification CANCELLED by user');
+        _showMessage('Verification cancelled');
+      } else if (result == 'Not Verify') {
         print('❌ Verification FAILED');
         _showMessage('✗ Not Verified (Tried ${_enrolledFaces.length} faces)');
       } else {
         // Success! Result contains the captured image path
         print('✅ Verification SUCCESS!');
         print('📸 Captured image path: $result');
-        _showMessage('✓ Verified! Image saved at: ${result?.split('/').last}');
+        _showMessage('✓ Verified! Image saved at: ${result.split('/').last}');
 
         // You can now use the image path for attendance or other purposes
         // For example: Upload to server, save to database, etc.
-        _showAttendanceDialog(result ?? '');
+        _showAttendanceDialog(result);
       }
     } catch (e) {
       print('❌ Verification Error: $e');
