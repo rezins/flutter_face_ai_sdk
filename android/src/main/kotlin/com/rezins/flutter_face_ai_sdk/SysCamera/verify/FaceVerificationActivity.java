@@ -677,8 +677,12 @@ public class FaceVerificationActivity extends AbsBaseActivity {
             // Verification failed - return "Not Verify"
             intent.putExtra(CAPTURED_IMAGE_PATH, "Not Verify");
             Log.d("FaceVerification", "Returning: Not Verify");
+        } else if (code == 0) {
+            // User cancelled/backed out - return null
+            intent.putExtra(CAPTURED_IMAGE_PATH, (String) null);
+            Log.d("FaceVerification", "Returning: null (user cancelled)");
         } else {
-            // Other cases (cancel, etc.) - return "Not Verify"
+            // Other cases - return "Not Verify"
             intent.putExtra(CAPTURED_IMAGE_PATH, "Not Verify");
             Log.d("FaceVerification", "Returning: Not Verify (code: " + code + ")");
         }
