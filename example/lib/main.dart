@@ -53,7 +53,7 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
   String _lastEvent = 'No events';
   List<FaceData> _enrolledFaces = []; // Changed to FaceData objects
   String? _enrolledFaceID;
-  bool _isInitialized = false;
+  bool _isInitialized = true;
   int _livenessType = 1; // 0: NONE, 1: MOTION, 2: COLOR_FLASH_MOTION, 3: COLOR_FLASH
   int _motionStepSize = 2; // Motion liveness step size (1-2)
   int _motionTimeout = 9; // Motion liveness timeout in seconds (3-22)
@@ -146,7 +146,7 @@ class _FaceAIHomePageState extends State<FaceAIHomePage> {
   }
 
   Future<void> _enroll() async {
-    if (!_isInitialized) {
+    if (!_isInitialized && !Platform.isIOS) {
       _showMessage('Initialize SDK first');
       return;
     }
