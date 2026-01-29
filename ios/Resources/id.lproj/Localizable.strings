@@ -1,0 +1,54 @@
+/* Indonesian Localization Resources / Sumber Daya Lokalisasi Indonesia */
+
+"About us" = "Tentang Kami";
+"Add Face By Camera" = "Tambah dengan kamera SDK";
+"Add Face From Album" = "Tambah dari album";
+"Confirm" = "Konfirmasi";
+"Confirm Add Face" = "Konfirmasi menambahkan wajah ini?";
+"Ensure face is clear" = "Pastikan posisi kepala sudah benar";
+"Face Verify and Liveness Detection" = "Verifikasi Wajah + Deteksi Liveness";
+"I Know" = "Saya Mengerti";
+"is Face Feature Exist" = "Fitur wajah sudah ada";
+"ONLY Liveness Detection" = "Hanya Deteksi Liveness";
+"Retry" = "Coba Lagi";
+"Save Face Feature" = "Simpan Fitur Wajah";
+"Select from album" = "Pilih dari album";
+"Select Image" = "Pilih Gambar";
+"Cancel" = "Batal";
+"Quit" = "Keluar";
+"Go Setting" = "Buka Pengaturan";
+"No Face Feature" = "Tidak ada fitur wajah";
+
+/* Face Tips Codes */
+"Face_Tips_Code_0" = "Hadapkan wajah ke kamera";
+"Face_Tips_Code_1" = "Wajah tidak terdeteksi";
+"Face_Tips_Code_2" = "Terdeteksi beberapa wajah";
+"Face_Tips_Code_3" = "Mendekat sedikit";
+"Face_Tips_Code_4" = "Memverifikasi (hadapkan ke kamera)";
+"Face_Tips_Code_5" = "Jangan menutup mata";
+"Face_Tips_Code_6" = "Kepala terlalu miring ke kanan";
+"Face_Tips_Code_7" = "Kepala terlalu miring ke kiri";
+"Face_Tips_Code_8" = "Jangan memiringkan kepala";
+"Face_Tips_Code_9" = "Jangan menunduk";
+"Face_Tips_Code_10" = "Jangan mendongak";
+"Face_Tips_Code_11" = "Mengkonfirmasi wajah";
+"Face_Tips_Code_12" = " ";
+"Face_Tips_Code_13" = "Wajah terlalu kecil";
+"Face_Tips_Code_31" = "Gambar wajah tidak ditemukan";
+"Face_Tips_Code_32" = "Pemrosesan gambar wajah gagal";
+"Face_Tips_Code_33" = "Kesalahan SDK";
+"Face_Tips_Code_34" = "Deteksi liveness gerakan selesai";
+"Face_Tips_Code_35" = "Deteksi liveness gerakan waktu habis";
+"Face_Tips_Code_38" = "Tidak ada wajah beberapa kali";
+"Face_Tips_Code_41" = "Buka tutup mulut berulang kali";
+"Face_Tips_Code_42" = "Silakan tersenyum";
+"Face_Tips_Code_43" = "Silakan berkedip";
+"Face_Tips_Code_44" = "Silakan gelengkan kepala";
+"Face_Tips_Code_45" = "Silakan anggukkan kepala";
+"Face_Tips_Code_50" = "Silakan mendekat, kilat warna dimulai";
+"Face_Tips_Code_51" = "Deteksi kilat warna berhasil";
+"Face_Tips_Code_52" = "Deteksi kilat warna gagal";
+"Face_Tips_Code_53" = "Deteksi gagal: Terlalu terang. Hindari cahaya langsung dan gunakan di lingkungan dalam ruangan dengan pencahayaan lembut";
+"Face_Tips_Code_61" = "Deteksi liveness selesai";
+"Face_Tips_Code_62" = "Verifikasi wajah berhasil";
+"Face_Tips_Code_63" = "Verifikasi wajah gagal";

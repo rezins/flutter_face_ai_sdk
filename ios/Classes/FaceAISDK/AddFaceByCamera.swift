@@ -20,35 +20,14 @@ public struct AddFaceByCamera: View {
 
     @StateObject private var viewModel: AddFaceByCameraModel = AddFaceByCameraModel()
 
-    // Localized tip helper - Force English
+    // Localized tip helper - Auto detect language
     private func localizedTip(for code: Int) -> String {
-        let key = "Face_Tips_Code_\(code)"
-        let defaultValue = "Add Face Tips Code=\(code)"
+        return FaceSDKLocalization.shared.localizedTip(for: code)
+    }
 
-        // Try to find the plugin bundle for Flutter
-        let frameworkBundle = Bundle(for: FaceSDKSwiftManager.self)
-
-        // For Flutter plugins, try multiple bundle locations
-        if let resourceBundlePath = frameworkBundle.path(forResource: "flutter_face_ai_sdk", ofType: "bundle"),
-           let resourceBundle = Bundle(path: resourceBundlePath),
-           let enPath = resourceBundle.path(forResource: "en", ofType: "lproj"),
-           let enBundle = Bundle(path: enPath) {
-            return NSLocalizedString(key, tableName: nil, bundle: enBundle, value: defaultValue, comment: "")
-        }
-
-        // Fallback: try direct path in framework bundle
-        if let enPath = frameworkBundle.path(forResource: "en", ofType: "lproj"),
-           let enBundle = Bundle(path: enPath) {
-            return NSLocalizedString(key, tableName: nil, bundle: enBundle, value: defaultValue, comment: "")
-        }
-
-        // Fallback: try main bundle
-        if let enPath = Bundle.main.path(forResource: "en", ofType: "lproj"),
-           let enBundle = Bundle(path: enPath) {
-            return NSLocalizedString(key, tableName: nil, bundle: enBundle, value: defaultValue, comment: "")
-        }
-
-        return defaultValue
+    // Localized string helper
+    private func localized(_ key: String) -> String {
+        return FaceSDKLocalization.shared.localizedString(key, defaultValue: key)
     }
 
     public var body: some View {
@@ -81,38 +60,13 @@ public struct AddFaceByCamera: View {
                     .background(Color.faceMain)
                     .cornerRadius(20)
 
-                // Core area: camera and confirmation dialog container
-                ZStack {
-                    // Layer A: Camera preview (bottom)
-                    FaceAICameraView(session: viewModel.captureSession, cameraSize: FaceCameraSize)
-                        .aspectRatio(1.0, contentMode: .fit)
-                        .clipShape(Circle())
-                        .background(Circle().fill(Color.white))
-                        .overlay(Circle().stroke(Color.gray, lineWidth: 1))
-
-                    // Layer B: Confirmation dialog (top)
-                    if viewModel.readyConfirmFace {
-                        Color.black.opacity(0.3)
-                            .clipShape(Circle())
-
-                        ConfirmAddFaceDialog(
-                            viewModel: viewModel,
-                            cameraSize: FaceCameraSize,
-                            onConfirm: {
-                                print("FaceFeature: \(String(describing: viewModel.faceFeatureBySDKCamera))")
-                                UserDefaults.standard.set(viewModel.faceFeatureBySDKCamera, forKey: faceID)
-
-                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                                    onDismiss(1)
-                                    dismiss()
-                                }
-                            }
-                        )
-                        .transition(.scale.combined(with: .opacity))
-                    }
-                }
-                .frame(width: FaceCameraSize, height: FaceCameraSize)
-                .animation(.easeInOut(duration: 0.25), value: viewModel.readyConfirmFace)
+                // Core area: camera preview
+                FaceAICameraView(session: viewModel.captureSession, cameraSize: FaceCameraSize)
+                    .frame(width: FaceCameraSize, height: FaceCameraSize)
+                    .aspectRatio(1.0, contentMode: .fit)
+                    .clipShape(Circle())
+                    .background(Circle().fill(Color.white))
+                    .overlay(Circle().stroke(Color.gray, lineWidth: 1))
 
                 Spacer()
             }
@@ -132,6 +86,19 @@ public struct AddFaceByCamera: View {
             .onChange(of: viewModel.sdkInterfaceTips.code) { newValue in
                 print("[FaceAISDK] AddFaceBySDKCamera: \(viewModel.sdkInterfaceTips.message)")
             }
+            .onChange(of: viewModel.readyConfirmFace) { isReady in
+                // Auto-save face when ready (no confirmation dialog)
+                if isReady {
+                    print("[FaceAISDK] Face captured - auto saving...")
+                    print("FaceFeature: \(String(describing: viewModel.faceFeatureBySDKCamera))")
+                    UserDefaults.standard.set(viewModel.faceFeatureBySDKCamera, forKey: faceID)
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        onDismiss(1)
+                        dismiss()
+                    }
+                }
+            }
             .onDisappear {
                 if autoControlBrightness {
                     ScreenBrightnessHelper.shared.restoreBrightness()
@@ -143,69 +110,3 @@ public struct AddFaceByCamera: View {
     }
 }
 
-// Confirmation Dialog
-struct ConfirmAddFaceDialog: View {
-    let viewModel: AddFaceByCameraModel
-    let cameraSize: CGFloat
-    let onConfirm: () -> Void
-
-    var body: some View {
-        VStack(alignment: .center, spacing: 16) {
-
-            Text("Confirm Add Face")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(Color.faceMain)
-                .padding(.top, 16)
-
-            Image(uiImage: viewModel.croppedFaceImage)
-                .resizable()
-                .scaledToFill()
-                .frame(width: 120, height: 120)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.gray.opacity(0.2), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-
-            Text("Ensure face is clear")
-                .font(.system(size: 14))
-                .foregroundColor(.gray)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal)
-
-            // Button group
-            HStack(spacing: 12) {
-                Button(action: {
-                    viewModel.reInit()
-                }) {
-                    Text("Retry")
-                        .font(.system(size: 16, weight: .medium))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(Color.gray.opacity(0.6))
-                        .foregroundColor(.primary)
-                        .cornerRadius(8)
-                }
-
-                Button(action: {
-                    onConfirm()
-                }) {
-                    Text("Confirm")
-                        .font(.system(size: 16, weight: .bold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(Color.faceMain)
-                        .foregroundColor(.white)
-                        .cornerRadius(8)
-                }
-            }
-            .padding(.horizontal, 16)
-            .padding(.bottom, 16)
-        }
-        .frame(width: cameraSize * 1.11)
-        .background(Color.white)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 5)
-    }
-}

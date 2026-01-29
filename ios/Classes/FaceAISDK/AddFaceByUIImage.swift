@@ -20,31 +20,9 @@ public struct AddFaceByUIImage: View {
 
     @Environment(\.dismiss) private var dismiss
 
-    // Localized tip helper - Force English
+    // Localized tip helper - Auto detect language
     private func localizedTip(for code: Int) -> String {
-        let key = "Face_Tips_Code_\(code)"
-        let defaultValue = "AddFace Tips Code=\(code)"
-
-        let frameworkBundle = Bundle(for: FaceSDKSwiftManager.self)
-
-        if let resourceBundlePath = frameworkBundle.path(forResource: "flutter_face_ai_sdk", ofType: "bundle"),
-           let resourceBundle = Bundle(path: resourceBundlePath),
-           let enPath = resourceBundle.path(forResource: "en", ofType: "lproj"),
-           let enBundle = Bundle(path: enPath) {
-            return NSLocalizedString(key, tableName: nil, bundle: enBundle, value: defaultValue, comment: "")
-        }
-
-        if let enPath = frameworkBundle.path(forResource: "en", ofType: "lproj"),
-           let enBundle = Bundle(path: enPath) {
-            return NSLocalizedString(key, tableName: nil, bundle: enBundle, value: defaultValue, comment: "")
-        }
-
-        if let enPath = Bundle.main.path(forResource: "en", ofType: "lproj"),
-           let enBundle = Bundle(path: enPath) {
-            return NSLocalizedString(key, tableName: nil, bundle: enBundle, value: defaultValue, comment: "")
-        }
-
-        return defaultValue
+        return FaceSDKLocalization.shared.localizedTip(for: code)
     }
 
     public var body: some View {
@@ -113,7 +91,7 @@ public struct AddFaceByUIImage: View {
                                     .frame(width: 80, height: 80)
                                     .foregroundStyle(.tertiary)
 
-                                Text("Select from album")
+                                Text(FaceSDKLocalization.shared.localizedString("Select from album", defaultValue: "Select from album"))
                                     .font(.system(size: 13))
                                     .foregroundStyle(.secondary)
                             }
@@ -129,7 +107,7 @@ public struct AddFaceByUIImage: View {
                         Button(action: {
                             showImagePicker = true
                         }) {
-                            Label("Select Image", systemImage: "photo.on.rectangle.angled")
+                            Label(FaceSDKLocalization.shared.localizedString("Select Image", defaultValue: "Select Image"), systemImage: "photo.on.rectangle.angled")
                                 .font(.headline)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 40)
@@ -150,7 +128,7 @@ public struct AddFaceByUIImage: View {
                                     dismiss()
                                 }
                             }) {
-                                Text("Save Face Feature")
+                                Text(FaceSDKLocalization.shared.localizedString("Save Face Feature", defaultValue: "Save Face Feature"))
                                     .font(.headline)
                                     .frame(maxWidth: .infinity)
                                     .frame(height: 40)

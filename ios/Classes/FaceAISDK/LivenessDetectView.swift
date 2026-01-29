@@ -23,31 +23,9 @@ struct LivenessDetectView: View {
 
     let onDismiss: (Int) -> Void
 
-    // Localized tip helper - Force English
+    // Localized tip helper - Auto detect language
     private func localizedTip(for code: Int) -> String {
-        let key = "Face_Tips_Code_\(code)"
-        let defaultValue = "LivenessDetect Tips Code=\(code)"
-
-        let frameworkBundle = Bundle(for: FaceSDKSwiftManager.self)
-
-        if let resourceBundlePath = frameworkBundle.path(forResource: "flutter_face_ai_sdk", ofType: "bundle"),
-           let resourceBundle = Bundle(path: resourceBundlePath),
-           let enPath = resourceBundle.path(forResource: "en", ofType: "lproj"),
-           let enBundle = Bundle(path: enPath) {
-            return NSLocalizedString(key, tableName: nil, bundle: enBundle, value: defaultValue, comment: "")
-        }
-
-        if let enPath = frameworkBundle.path(forResource: "en", ofType: "lproj"),
-           let enBundle = Bundle(path: enPath) {
-            return NSLocalizedString(key, tableName: nil, bundle: enBundle, value: defaultValue, comment: "")
-        }
-
-        if let enPath = Bundle.main.path(forResource: "en", ofType: "lproj"),
-           let enBundle = Bundle(path: enPath) {
-            return NSLocalizedString(key, tableName: nil, bundle: enBundle, value: defaultValue, comment: "")
-        }
-
-        return defaultValue
+        return FaceSDKLocalization.shared.localizedTip(for: code)
     }
 
 
@@ -139,7 +117,7 @@ struct LivenessDetectView: View {
                                 dismiss()
                             }
                         }) {
-                            Text("Confirm")
+                            Text(FaceSDKLocalization.shared.localizedString("Confirm", defaultValue: "Confirm"))
                                 .font(.system(size: 18).bold())
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
