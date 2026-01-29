@@ -208,7 +208,7 @@ public class FlutterFaceAiSdkPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
         }
 
         // Motion liveness types: default "1,2,3" (open mouth, smile, blink)
-        let motionLivenessTypes = "1,2,3"
+        let motionLivenessTypes = "1,2,3,4,5"
 
         // Pass faceFeature directly to showFaceVerify
         FaceSDKSwiftManager.showFaceVerify(

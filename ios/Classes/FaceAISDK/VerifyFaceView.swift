@@ -40,6 +40,14 @@ struct VerifyFaceView: View {
     // Callback: (resultCode, capturedImagePath?)
     let onDismiss: (Int, String?) -> Void
 
+    // Adjusted timeout: add 4 seconds for color flash liveness (type 2 or 3)
+    private var adjustedTimeOut: Int {
+        if livenessType == 2 || livenessType == 3 {
+            return motionLivenessTimeOut + 4
+        }
+        return motionLivenessTimeOut
+    }
+
     // Localized tip helper - Auto detect language
     private func localizedTip(for code: Int) -> String {
         return FaceSDKLocalization.shared.localizedTip(for: code)
@@ -72,16 +80,18 @@ struct VerifyFaceView: View {
         }
     }
 
-    /// Capture and save the face image
-    private func captureAndSaveImage() -> String? {
-        // Use the captured image from photo helper
-        if let capturedImage = photoCapture.capturedImage {
-            print("[FaceAISDK] Using captured image from photo helper")
-            return saveImageToDocuments(capturedImage)
+    /// Capture and save the face image (async - captures photo then saves)
+    private func captureAndSaveImage(completion: @escaping (String?) -> Void) {
+        photoCapture.capturePhoto { [self] image in
+            if let capturedImage = image {
+                print("[FaceAISDK] Photo captured, saving...")
+                let path = saveImageToDocuments(capturedImage)
+                completion(path)
+            } else {
+                print("[FaceAISDK] No captured image available")
+                completion(nil)
+            }
         }
-
-        print("[FaceAISDK] No captured image available")
-        return nil
     }
 
     /// Setup photo capture on the session
@@ -97,18 +107,18 @@ struct VerifyFaceView: View {
 
     /// Remaining time in seconds
     private var remainingTime: Int {
-        max(0, motionLivenessTimeOut - elapsedTime)
+        max(0, adjustedTimeOut - elapsedTime)
     }
 
     /// Timer progress (0.0 to 1.0)
     private var timerProgress: CGFloat {
-        guard motionLivenessTimeOut > 0 else { return 1.0 }
-        return CGFloat(remainingTime) / CGFloat(motionLivenessTimeOut)
+        guard adjustedTimeOut > 0 else { return 1.0 }
+        return CGFloat(remainingTime) / CGFloat(adjustedTimeOut)
     }
 
     /// Timer color based on remaining time
     private var timerColor: Color {
-        let percentage = Double(remainingTime) / Double(motionLivenessTimeOut)
+        let percentage = Double(remainingTime) / Double(adjustedTimeOut)
         if percentage > 0.5 {
             return Color.green
         } else if percentage > 0.25 {
@@ -124,14 +134,12 @@ struct VerifyFaceView: View {
         timerActive = true
         elapsedTime = 0
 
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] _ in
-            DispatchQueue.main.async {
-                if self.elapsedTime < self.motionLivenessTimeOut {
-                    self.elapsedTime += 1
-                }
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            if elapsedTime < adjustedTimeOut {
+                elapsedTime += 1
             }
         }
-        print("[FaceAISDK] Timer started - Total time: \(motionLivenessTimeOut)s")
+        print("[FaceAISDK] Timer started - Total time: \(adjustedTimeOut)s (livenessType: \(livenessType))")
     }
 
     /// Stop the countdown timer
@@ -218,21 +226,14 @@ struct VerifyFaceView: View {
 
                 // Camera with timer ring
                 ZStack {
-                    // Timer progress ring (background)
+                    // Timer progress ring (background) - thinner
                     Circle()
-                        .stroke(Color.gray.opacity(0.3), lineWidth: 8)
-                        .frame(width: FaceCameraSize + 20, height: FaceCameraSize + 20)
+                        .stroke(Color.gray.opacity(0.2), lineWidth: 4)
+                        .frame(width: FaceCameraSize + 16, height: FaceCameraSize + 16)
 
                     // Timer progress ring (foreground - countdown)
-                    Circle()
-                        .trim(from: 0, to: timerProgress)
-                        .stroke(
-                            timerColor,
-                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                        )
-                        .frame(width: FaceCameraSize + 20, height: FaceCameraSize + 20)
-                        .rotationEffect(.degrees(-90))
-                        .animation(.linear(duration: 1), value: elapsedTime)
+                    TimerProgressRing(progress: timerProgress, color: timerColor)
+                        .frame(width: FaceCameraSize + 16, height: FaceCameraSize + 16)
 
                     // Camera view
                     FaceAICameraView(session: viewModel.captureSession, cameraSize: FaceCameraSize)
@@ -247,18 +248,8 @@ struct VerifyFaceView: View {
                     // Timer countdown text at bottom of circle
                     VStack {
                         Spacer()
-                        HStack {
-                            Image(systemName: "timer")
-                                .font(.system(size: 14, weight: .bold))
-                            Text("\(remainingTime)s")
-                                .font(.system(size: 16, weight: .bold))
-                        }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 6)
-                        .background(timerColor.opacity(0.9))
-                        .cornerRadius(16)
-                        .offset(y: 10)
+                        TimerBadge(remainingTime: remainingTime, color: timerColor)
+                            .offset(y: 10)
                     }
                     .frame(width: FaceCameraSize, height: FaceCameraSize)
                 }
@@ -410,17 +401,18 @@ struct VerifyFaceView: View {
                     // - Success (code 1 or 10 with similarity > threshold): capture image and return path
                     // - Timeout (code 4): return nil with code 4
                     // - Others: return nil with code
-                    var capturedImagePath: String? = nil
                     if isSuccess {
-                        // Try to save the captured image
-                        capturedImagePath = captureAndSaveImage()
-                        print("[FaceAISDK] Verification SUCCESS - Image path: \(capturedImagePath ?? "nil")")
+                        // Capture photo first, then dismiss with path
+                        captureAndSaveImage { capturedImagePath in
+                            print("[FaceAISDK] Verification SUCCESS - Image path: \(capturedImagePath ?? "nil")")
+                            onDismiss(resultCode, capturedImagePath)
+                            dismiss()
+                        }
                     } else {
                         print("[FaceAISDK] Verification FAILED - Code: \(resultCode)")
+                        onDismiss(resultCode, nil)
+                        dismiss()
                     }
-
-                    onDismiss(resultCode, capturedImagePath)
-                    dismiss()
                 }
             }
         }
@@ -434,19 +426,83 @@ struct VerifyFaceView: View {
 
             viewModel.stopFaceVerify()
         }
-        .animation(.easeInOut(duration: 0.3), value: showToast)
+    }
+}
+
+// MARK: - Timer UI Components
+
+/// Separate view for timer progress ring with smooth animation
+struct TimerProgressRing: View {
+    let progress: CGFloat
+    let color: Color
+
+    // Darker color variants (700 shade equivalent)
+    private var darkColor: Color {
+        switch color {
+        case Color.green:
+            return Color(red: 21/255, green: 128/255, blue: 61/255) // green-700
+        case Color.orange:
+            return Color(red: 194/255, green: 65/255, blue: 12/255) // orange-700
+        case Color.red:
+            return Color(red: 185/255, green: 28/255, blue: 28/255) // red-700
+        default:
+            return color
+        }
+    }
+
+    var body: some View {
+        Circle()
+            .trim(from: 0, to: progress)
+            .stroke(
+                darkColor,
+                style: StrokeStyle(lineWidth: 2, lineCap: .round)
+            )
+            .rotationEffect(.degrees(-90))
+            .animation(.linear(duration: 1), value: progress)
+    }
+}
+
+/// Separate view for timer badge
+struct TimerBadge: View {
+    let remainingTime: Int
+    let color: Color
+
+    // Darker color variants (700 shade equivalent)
+    private var darkColor: Color {
+        switch color {
+        case Color.green:
+            return Color(red: 21/255, green: 128/255, blue: 61/255) // green-700
+        case Color.orange:
+            return Color(red: 194/255, green: 65/255, blue: 12/255) // orange-700
+        case Color.red:
+            return Color(red: 185/255, green: 28/255, blue: 28/255) // red-700
+        default:
+            return color
+        }
+    }
+
+    var body: some View {
+        Text("\(remainingTime)")
+            .font(.system(size: 18, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .foregroundColor(.white)
+            .frame(width: 44, height: 44)
+            .background(darkColor)
+            .clipShape(Circle())
     }
 }
 
 // MARK: - Photo Capture Helper
-/// Helper class to capture photos using AVCapturePhotoOutput (works alongside SDK's video processing)
+/// Helper class to capture ONE photo when verification succeeds using AVCapturePhotoOutput
 class PhotoCaptureHelper: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
     @Published var capturedImage: UIImage?
+    @Published var isCapturing: Bool = false
 
     private var photoOutput: AVCapturePhotoOutput?
     private var isSetup = false
+    private var captureCompletion: ((UIImage?) -> Void)?
 
-    /// Setup photo output on the session (non-invasive - AVCapturePhotoOutput is designed to coexist)
+    /// Setup photo output on the session
     func setupPhotoOutput(session: AVCaptureSession) {
         guard !isSetup else {
             print("[PhotoCaptureHelper] Already setup")
@@ -462,61 +518,53 @@ class PhotoCaptureHelper: NSObject, ObservableObject, AVCapturePhotoCaptureDeleg
             self.photoOutput = newPhotoOutput
             self.isSetup = true
             print("[PhotoCaptureHelper] Added photo output successfully")
-
-            // Capture a photo immediately and periodically to always have a recent image
-            capturePhoto()
         } else {
             print("[PhotoCaptureHelper] Could not add photo output")
         }
 
         session.commitConfiguration()
-
-        // Start periodic capture to always have a recent image
-        startPeriodicCapture()
     }
 
-    /// Start capturing photos periodically
-    private func startPeriodicCapture() {
-        // Capture every 0.5 seconds to always have a recent image
-        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
-            guard let self = self, self.isSetup else {
-                timer.invalidate()
-                return
-            }
-            self.capturePhoto()
-        }
-    }
-
-    /// Capture a single photo
-    func capturePhoto() {
-        guard let photoOutput = photoOutput else {
-            print("[PhotoCaptureHelper] Photo output not ready")
+    /// Capture a single photo (called only when verification succeeds)
+    func capturePhoto(completion: @escaping (UIImage?) -> Void) {
+        guard let photoOutput = photoOutput, !isCapturing else {
+            print("[PhotoCaptureHelper] Photo output not ready or already capturing")
+            completion(nil)
             return
         }
 
+        isCapturing = true
+        captureCompletion = completion
+
         let settings = AVCapturePhotoSettings()
-        // Use default settings for best compatibility
         photoOutput.capturePhoto(with: settings, delegate: self)
+        print("[PhotoCaptureHelper] Capturing photo...")
     }
 
     // MARK: - AVCapturePhotoCaptureDelegate
 
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        isCapturing = false
+
         if let error = error {
             print("[PhotoCaptureHelper] Capture error: \(error.localizedDescription)")
+            captureCompletion?(nil)
+            captureCompletion = nil
             return
         }
 
         guard let imageData = photo.fileDataRepresentation(),
               let image = UIImage(data: imageData) else {
             print("[PhotoCaptureHelper] Could not create image from photo")
+            captureCompletion?(nil)
+            captureCompletion = nil
             return
         }
 
-        DispatchQueue.main.async { [weak self] in
-            self?.capturedImage = image
-            print("[PhotoCaptureHelper] Photo captured successfully")
-        }
+        print("[PhotoCaptureHelper] Photo captured successfully")
+        capturedImage = image
+        captureCompletion?(image)
+        captureCompletion = nil
     }
 
     /// Cleanup

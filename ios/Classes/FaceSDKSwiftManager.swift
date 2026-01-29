@@ -2,6 +2,22 @@ import SwiftUI
 import UIKit
 import FaceAISDK_Core
 
+// MARK: - Custom Hosting Controller with Dark Status Bar
+class DarkStatusBarHostingController<Content: View>: UIHostingController<Content> {
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        return .darkContent
+    }
+
+    override var prefersStatusBarHidden: Bool {
+        return false
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        setNeedsStatusBarAppearanceUpdate()
+    }
+}
+
 @objcMembers
 public class FaceSDKSwiftManager: NSObject {
 
@@ -127,7 +143,7 @@ public class FaceSDKSwiftManager: NSObject {
 
             ScreenBrightnessHelper.shared.maximizeBrightness()
 
-                var hostingController: UIHostingController<VerifyFaceView>? = nil
+                var hostingController: DarkStatusBarHostingController<VerifyFaceView>? = nil
 
                 var sdkView = VerifyFaceView(
                     faceFeature: faceFeature,
@@ -149,7 +165,7 @@ public class FaceSDKSwiftManager: NSObject {
 
                 sdkView.autoControlBrightness = false
 
-                hostingController = UIHostingController(rootView: sdkView)
+                hostingController = DarkStatusBarHostingController(rootView: sdkView)
                 hostingController?.modalPresentationStyle = .fullScreen
                 topVC.present(hostingController!, animated: true)
             }
@@ -180,7 +196,7 @@ public class FaceSDKSwiftManager: NSObject {
 
             ScreenBrightnessHelper.shared.maximizeBrightness()
 
-            var hostingController: UIHostingController<LivenessDetectView>? = nil
+            var hostingController: DarkStatusBarHostingController<LivenessDetectView>? = nil
 
             var sdkView = LivenessDetectView(
                 livenessType: livenessType.intValue,
@@ -199,7 +215,7 @@ public class FaceSDKSwiftManager: NSObject {
 
             sdkView.autoControlBrightness = false
 
-            hostingController = UIHostingController(rootView: sdkView)
+            hostingController = DarkStatusBarHostingController(rootView: sdkView)
             hostingController?.modalPresentationStyle = .fullScreen
             topVC.present(hostingController!, animated: true)
         }
@@ -229,7 +245,7 @@ public class FaceSDKSwiftManager: NSObject {
 
             ScreenBrightnessHelper.shared.maximizeBrightness()
 
-            var hostingController: UIHostingController<AddFaceByCamera>? = nil
+            var hostingController: DarkStatusBarHostingController<AddFaceByCamera>? = nil
 
             var sdkView = AddFaceByCamera(
                 faceID: faceID,
@@ -246,7 +262,7 @@ public class FaceSDKSwiftManager: NSObject {
 
             sdkView.autoControlBrightness = false
 
-            hostingController = UIHostingController(rootView: sdkView)
+            hostingController = DarkStatusBarHostingController(rootView: sdkView)
             hostingController?.modalPresentationStyle = .fullScreen
             topVC.present(hostingController!, animated: true)
         }
