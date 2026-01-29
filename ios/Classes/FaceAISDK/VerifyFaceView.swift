@@ -18,6 +18,11 @@ struct VerifyFaceView: View {
     @State private var showToast = false
     @State private var toastViewTips: String = ""
 
+    // Timer states
+    @State private var elapsedTime: Int = 0
+    @State private var timerActive: Bool = false
+    @State private var timer: Timer? = nil
+
     var autoControlBrightness: Bool = true
 
     // Business parameters
@@ -86,6 +91,55 @@ struct VerifyFaceView: View {
             return
         }
         photoCapture.setupPhotoOutput(session: session)
+    }
+
+    // MARK: - Timer Computed Properties
+
+    /// Remaining time in seconds
+    private var remainingTime: Int {
+        max(0, motionLivenessTimeOut - elapsedTime)
+    }
+
+    /// Timer progress (0.0 to 1.0)
+    private var timerProgress: CGFloat {
+        guard motionLivenessTimeOut > 0 else { return 1.0 }
+        return CGFloat(remainingTime) / CGFloat(motionLivenessTimeOut)
+    }
+
+    /// Timer color based on remaining time
+    private var timerColor: Color {
+        let percentage = Double(remainingTime) / Double(motionLivenessTimeOut)
+        if percentage > 0.5 {
+            return Color.green
+        } else if percentage > 0.25 {
+            return Color.orange
+        } else {
+            return Color.red
+        }
+    }
+
+    /// Start the countdown timer
+    private func startTimer() {
+        guard !timerActive else { return }
+        timerActive = true
+        elapsedTime = 0
+
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [self] _ in
+            DispatchQueue.main.async {
+                if self.elapsedTime < self.motionLivenessTimeOut {
+                    self.elapsedTime += 1
+                }
+            }
+        }
+        print("[FaceAISDK] Timer started - Total time: \(motionLivenessTimeOut)s")
+    }
+
+    /// Stop the countdown timer
+    private func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+        timerActive = false
+        print("[FaceAISDK] Timer stopped at \(elapsedTime)s")
     }
 
     /// Save UIImage to documents directory and return the path
@@ -162,15 +216,53 @@ struct VerifyFaceView: View {
                     .frame(minHeight: 30)
                     .foregroundColor(.black)
 
-                FaceAICameraView(session: viewModel.captureSession, cameraSize: FaceCameraSize)
-                    .frame(
-                        width: FaceCameraSize,
-                        height: FaceCameraSize
-                    )
-                    .padding(.vertical, 8)
-                    .aspectRatio(1.0, contentMode: .fit)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.gray, lineWidth: 1))
+                // Camera with timer ring
+                ZStack {
+                    // Timer progress ring (background)
+                    Circle()
+                        .stroke(Color.gray.opacity(0.3), lineWidth: 8)
+                        .frame(width: FaceCameraSize + 20, height: FaceCameraSize + 20)
+
+                    // Timer progress ring (foreground - countdown)
+                    Circle()
+                        .trim(from: 0, to: timerProgress)
+                        .stroke(
+                            timerColor,
+                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                        )
+                        .frame(width: FaceCameraSize + 20, height: FaceCameraSize + 20)
+                        .rotationEffect(.degrees(-90))
+                        .animation(.linear(duration: 1), value: elapsedTime)
+
+                    // Camera view
+                    FaceAICameraView(session: viewModel.captureSession, cameraSize: FaceCameraSize)
+                        .frame(
+                            width: FaceCameraSize,
+                            height: FaceCameraSize
+                        )
+                        .aspectRatio(1.0, contentMode: .fit)
+                        .clipShape(Circle())
+                        .overlay(Circle().stroke(Color.gray, lineWidth: 1))
+
+                    // Timer countdown text at bottom of circle
+                    VStack {
+                        Spacer()
+                        HStack {
+                            Image(systemName: "timer")
+                                .font(.system(size: 14, weight: .bold))
+                            Text("\(remainingTime)s")
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .background(timerColor.opacity(0.9))
+                        .cornerRadius(16)
+                        .offset(y: 10)
+                    }
+                    .frame(width: FaceCameraSize, height: FaceCameraSize)
+                }
+                .padding(.vertical, 8)
 
                 Spacer()
             }
@@ -282,6 +374,9 @@ struct VerifyFaceView: View {
                 motionLivenessSteps: motionLivenessSteps
             )
 
+            // Start countdown timer
+            startTimer()
+
             // Setup photo capture after SDK initialization (with delay)
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                 setupPhotoCaptureIfNeeded()
@@ -289,6 +384,9 @@ struct VerifyFaceView: View {
         }
         .onChange(of: viewModel.faceVerifyResult.code) { newValue in
             toastViewTips = ""
+
+            // Stop timer when we get a result
+            stopTimer()
 
             if newValue == VerifyResultCode.COLOR_LIVENESS_LIGHT_TOO_HIGH {
                 withAnimation {
@@ -327,6 +425,9 @@ struct VerifyFaceView: View {
             }
         }
         .onDisappear {
+            // Stop timer
+            stopTimer()
+
             if autoControlBrightness {
                 ScreenBrightnessHelper.shared.restoreBrightness()
             }
