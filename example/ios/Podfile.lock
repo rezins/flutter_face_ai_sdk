@@ -1,0 +1,28 @@
+PODS:
+  - Flutter (1.0.0)
+  - flutter_face_ai_sdk (0.0.1):
+    - Flutter
+  - integration_test (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - flutter_face_ai_sdk (from `.symlinks/plugins/flutter_face_ai_sdk/ios`)
+  - integration_test (from `.symlinks/plugins/integration_test/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  flutter_face_ai_sdk:
+    :path: ".symlinks/plugins/flutter_face_ai_sdk/ios"
+  integration_test:
+    :path: ".symlinks/plugins/integration_test/ios"
+
+SPEC CHECKSUMS:
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_face_ai_sdk: c65845fe8d64e6178bc0c03180c9c1bc59651d48
+  integration_test: 252f60fa39af5e17c3aa9899d35d908a0721b573
+
+PODFILE CHECKSUM: 9580a49fa2c095d51100c20f258df867100b916b
+
+COCOAPODS: 1.15.2
