@@ -180,7 +180,11 @@ public class FlutterFaceAiSdkPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
     /// - motion_step_size: Number of motion steps (default: 2)
     /// - motion_timeout: Timeout in seconds (default: 9)
     /// - threshold: Similarity threshold (default: 0.85)
-    /// Returns: "Verify" or "Not Verify"
+    /// Returns:
+    /// - Success: captured image path (String)
+    /// - Cancelled (back button): null
+    /// - Timeout: "Timeout" (String)
+    /// - Not verified: "Not Verify" (String)
     private func handleStartVerify(call: FlutterMethodCall, result: @escaping FlutterResult) {
         guard let args = call.arguments as? [String: Any],
               let faceFeatures = args["face_features"] as? [String],
@@ -195,56 +199,74 @@ public class FlutterFaceAiSdkPlugin: NSObject, FlutterPlugin, FlutterStreamHandl
         let threshold = args["threshold"] as? Double ?? 0.85
 
         // Use first face feature for verification
-        let primaryFeature = faceFeatures[0]
+        let faceFeature = faceFeatures[0]
 
-        // Generate a temporary faceId and store the feature
-        let tempFaceId = "flutter_verify_\(UUID().uuidString)"
-
-        // Store the feature temporarily for verification
-        FaceSDKSwiftManager.insertFaceFeature(tempFaceId, primaryFeature) { [weak self] (insertResult: NSNumber) in
-            guard insertResult.intValue == 1 else {
-                result(FlutterError(code: "INVALID_FEATURE", message: "Invalid face feature format (must be 1024 chars)", details: nil))
-                return
-            }
-
-            // Motion liveness types: default "1,2,3" (open mouth, smile, blink)
-            let motionLivenessTypes = "1,2,3"
-
-            FaceSDKSwiftManager.showFaceVerify(
-                tempFaceId,
-                NSNumber(value: threshold),
-                NSNumber(value: livenessType),
-                motionLivenessTypes,
-                NSNumber(value: motionTimeout),
-                NSNumber(value: motionStepSize),
-                { (resultCode: NSNumber) in
-                    DispatchQueue.main.async {
-                        let code = resultCode.intValue
-
-                        // Clean up temporary feature
-                        UserDefaults.standard.removeObject(forKey: tempFaceId)
-
-                        // Result codes:
-                        // 0 = cancelled, 1 = success (verify), 2 = similarity too low
-                        // 3 = motion liveness success, 4 = motion liveness timeout
-                        // 5 = face not detected, 6 = no face feature
-                        // 7 = color liveness success, 8 = color liveness failed
-                        // 9 = too bright, 10 = all liveness passed
-
-                        let isVerified = code == 1 || code == 10
-                        let resultString = isVerified ? "Verify" : "Not Verify"
-
-                        self?.sendEvent(type: "Verified", data: [
-                            "success": isVerified,
-                            "code": code,
-                            "result": resultString
-                        ])
-
-                        result(resultString)
-                    }
-                }
-            )
+        // Validate face feature length
+        guard faceFeature.count == 1024 else {
+            result(FlutterError(code: "INVALID_FEATURE", message: "Invalid face feature format (must be 1024 chars)", details: nil))
+            return
         }
+
+        // Motion liveness types: default "1,2,3" (open mouth, smile, blink)
+        let motionLivenessTypes = "1,2,3"
+
+        // Pass faceFeature directly to showFaceVerify
+        FaceSDKSwiftManager.showFaceVerify(
+            faceFeature,
+            NSNumber(value: threshold),
+            NSNumber(value: livenessType),
+            motionLivenessTypes,
+            NSNumber(value: motionTimeout),
+            NSNumber(value: motionStepSize),
+            { [weak self] (resultCode: NSNumber, capturedImagePath: String?) in
+                DispatchQueue.main.async {
+                    let code = resultCode.intValue
+
+                    // Result codes:
+                    // 0 = cancelled (back button) -> return nil
+                    // 1 = success (verify) -> return image path
+                    // 4 = motion liveness timeout -> return "Timeout"
+                    // 10 = all liveness passed -> return image path
+                    // others = not verified -> return "Not Verify"
+
+                    let isVerified = (code == 1 || code == 10) && capturedImagePath != nil
+
+                    // Determine what to return to Flutter
+                    let flutterResult: Any?
+                    switch code {
+                    case 0:
+                        // User cancelled (back button) -> return nil
+                        flutterResult = nil
+                        print("[FaceAISDK] Verification CANCELLED by user")
+
+                    case 1, 10:
+                        // Success -> return image path
+                        flutterResult = capturedImagePath
+                        print("[FaceAISDK] Verification SUCCESS - Image: \(capturedImagePath ?? "nil")")
+
+                    case 4:
+                        // Timeout -> return "Timeout"
+                        flutterResult = "Timeout"
+                        print("[FaceAISDK] Verification TIMEOUT")
+
+                    default:
+                        // Not verified -> return "Not Verify"
+                        flutterResult = "Not Verify"
+                        print("[FaceAISDK] Verification FAILED - Code: \(code)")
+                    }
+
+                    // Send event for backward compatibility
+                    self?.sendEvent(type: "Verified", data: [
+                        "success": isVerified,
+                        "code": code,
+                        "result": isVerified ? "success" : "fail",
+                        "imagePath": capturedImagePath as Any
+                    ])
+
+                    result(flutterResult)
+                }
+            }
+        )
     }
 
     /// Start liveness detection only (no face verification)

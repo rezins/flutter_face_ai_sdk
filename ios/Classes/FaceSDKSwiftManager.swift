@@ -96,13 +96,18 @@ public class FaceSDKSwiftManager: NSObject {
 
 
     // MARK: - 1:1 Face Verification
-    public static func showFaceVerify(_ faceID: String,
+    /// Callback returns: (resultCode, capturedImagePath?)
+    /// - resultCode 0 = cancelled (return nil to Flutter)
+    /// - resultCode 1 or 10 = success (return image path to Flutter)
+    /// - resultCode 4 = timeout (return "Timeout" to Flutter)
+    /// - others = not verified (return "Not Verify" to Flutter)
+    public static func showFaceVerify(_ faceFeature: String,
                                           _ threshold: NSNumber,
                                           _ livenessType: NSNumber,
                                           _ motionLivenessTypes: String,
                                           _ motionLivenessTimeOut : NSNumber,
                                           _ motionLivenessSteps : NSNumber,
-                                          _ callback: @escaping (NSNumber) -> Void) {
+                                          _ callback: @escaping (NSNumber, String?) -> Void) {
 
         // Ensure SDK is initialized before any operation
         ensureSDKInitialized()
@@ -110,7 +115,7 @@ public class FaceSDKSwiftManager: NSObject {
         // Run debug trace before any SDK operation
         runDebugTraceIfNeeded()
 
-        print("[FaceAISDK] showFaceVerify called with faceID: \(faceID), threshold: \(threshold)")
+        print("[FaceAISDK] showFaceVerify called with faceFeature length: \(faceFeature.count), threshold: \(threshold)")
 
         DispatchQueue.main.async {
             guard let topVC = getTopViewController() else {
@@ -125,18 +130,18 @@ public class FaceSDKSwiftManager: NSObject {
                 var hostingController: UIHostingController<VerifyFaceView>? = nil
 
                 var sdkView = VerifyFaceView(
-                    faceID: faceID,
+                    faceFeature: faceFeature,
                     threshold: threshold.floatValue,
                     livenessType: livenessType.intValue,
                     motionLiveness: motionLivenessTypes,
                     motionLivenessTimeOut: motionLivenessTimeOut.intValue,
                     motionLivenessSteps: motionLivenessSteps.intValue,
-                    onDismiss: { (resultCode: Int) in
+                    onDismiss: { (resultCode: Int, capturedImagePath: String?) in
                         DispatchQueue.main.async {
                             ScreenBrightnessHelper.shared.restoreBrightness()
 
                             hostingController?.dismiss(animated: true) {
-                                callback(NSNumber(value: resultCode))
+                                callback(NSNumber(value: resultCode), capturedImagePath)
                             }
                         }
                     }

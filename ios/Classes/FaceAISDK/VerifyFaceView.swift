@@ -1,11 +1,18 @@
 import SwiftUI
 import FaceAISDK_Core
+import AVFoundation
 
 /**
  * 1:1 Face Verification + Liveness Detection
+ * Result codes:
+ *   0 = user cancelled (back button) -> return nil
+ *   1 = verification success -> return captured image path
+ *   4 = timeout -> return "Timeout"
+ *   others = not verified -> return "Not Verify"
  */
 struct VerifyFaceView: View {
     @StateObject private var viewModel: VerifyFaceModel = VerifyFaceModel()
+    @StateObject private var photoCapture = PhotoCaptureHelper()
     @Environment(\.dismiss) private var dismiss
     @State private var showLightHighDialog = false
     @State private var showToast = false
@@ -14,7 +21,7 @@ struct VerifyFaceView: View {
     var autoControlBrightness: Bool = true
 
     // Business parameters
-    let faceID: String
+    let faceFeature: String
     let threshold: Float
 
     // 0: No liveness, 1: Motion only, 2: Motion+Color, 3: Color only
@@ -25,11 +32,100 @@ struct VerifyFaceView: View {
     let motionLivenessTimeOut: Int  // seconds
     let motionLivenessSteps: Int    // number of motion actions
 
-    let onDismiss: (Int) -> Void
+    // Callback: (resultCode, capturedImagePath?)
+    let onDismiss: (Int, String?) -> Void
 
     // Localized tip helper - Auto detect language
     private func localizedTip(for code: Int) -> String {
         return FaceSDKLocalization.shared.localizedTip(for: code)
+    }
+
+    // Get localized result tip based on verification result code
+    private func getLocalizedResultTip(code: Int, similarity: Float) -> String {
+        switch code {
+        case 1, 10:
+            // Success
+            if similarity > threshold {
+                return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_62", defaultValue: "Verifikasi wajah berhasil")
+            } else {
+                return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_63", defaultValue: "Verifikasi wajah gagal")
+            }
+        case 3:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_34", defaultValue: "Deteksi liveness gerakan selesai")
+        case 4:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_35", defaultValue: "Deteksi liveness gerakan waktu habis")
+        case 5:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_38", defaultValue: "Tidak ada wajah beberapa kali")
+        case 7:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_51", defaultValue: "Deteksi kilat warna berhasil")
+        case 8:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_52", defaultValue: "Deteksi kilat warna gagal")
+        case 9:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_53", defaultValue: "Terlalu terang")
+        default:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_63", defaultValue: "Verifikasi wajah gagal")
+        }
+    }
+
+    /// Capture and save the face image
+    private func captureAndSaveImage() -> String? {
+        // Use the captured image from photo helper
+        if let capturedImage = photoCapture.capturedImage {
+            print("[FaceAISDK] Using captured image from photo helper")
+            return saveImageToDocuments(capturedImage)
+        }
+
+        print("[FaceAISDK] No captured image available")
+        return nil
+    }
+
+    /// Setup photo capture on the session
+    private func setupPhotoCaptureIfNeeded() {
+        guard let session = viewModel.captureSession as? AVCaptureSession else {
+            print("[FaceAISDK] Could not get capture session for photo capture")
+            return
+        }
+        photoCapture.setupPhotoOutput(session: session)
+    }
+
+    /// Save UIImage to documents directory and return the path
+    private func saveImageToDocuments(_ image: UIImage) -> String? {
+        let fileManager = FileManager.default
+        guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            print("[FaceAISDK] Could not access documents directory")
+            return nil
+        }
+
+        // Create FaceAISDK subdirectory
+        let faceSDKDirectory = documentsDirectory.appendingPathComponent("FaceAISDK")
+        if !fileManager.fileExists(atPath: faceSDKDirectory.path) {
+            do {
+                try fileManager.createDirectory(at: faceSDKDirectory, withIntermediateDirectories: true)
+            } catch {
+                print("[FaceAISDK] Failed to create directory: \(error)")
+                return nil
+            }
+        }
+
+        // Generate unique filename with timestamp
+        let timestamp = Int(Date().timeIntervalSince1970 * 1000)
+        let filename = "verify_\(timestamp).jpg"
+        let fileURL = faceSDKDirectory.appendingPathComponent(filename)
+
+        // Save as JPEG with high quality (no scaling)
+        guard let imageData = image.jpegData(compressionQuality: 0.9) else {
+            print("[FaceAISDK] Failed to convert image to JPEG")
+            return nil
+        }
+
+        do {
+            try imageData.write(to: fileURL)
+            print("[FaceAISDK] Image saved to: \(fileURL.path)")
+            return fileURL.path
+        } catch {
+            print("[FaceAISDK] Failed to save image: \(error)")
+            return nil
+        }
     }
 
     var body: some View {
@@ -37,7 +133,7 @@ struct VerifyFaceView: View {
             VStack {
                  HStack {
                     Button(action: {
-                        onDismiss(0) // 0 = user cancelled
+                        onDismiss(0, nil) // 0 = user cancelled, return nil
                         dismiss()
                     }) {
                         Image(systemName: "chevron.left")
@@ -85,8 +181,11 @@ struct VerifyFaceView: View {
             .navigationBarHidden(true)
             if showToast {
                 let similarity = String(format: "%.2f", viewModel.faceVerifyResult.similarity)
-                let displayTips = toastViewTips.isEmpty ? viewModel.faceVerifyResult.tips : toastViewTips
-                let displayMessage = (toastViewTips.isEmpty) ? "\(displayTips) \(similarity)" : displayTips
+                // Use localized tips instead of SDK's Chinese tips
+                let resultCode = viewModel.faceVerifyResult.code
+                let localizedResultTip = getLocalizedResultTip(code: resultCode, similarity: viewModel.faceVerifyResult.similarity)
+                let displayTips = toastViewTips.isEmpty ? localizedResultTip : toastViewTips
+                let displayMessage = (toastViewTips.isEmpty && resultCode != 1 && resultCode != 10) ? displayTips : "\(displayTips) \(similarity)"
 
                 let isSuccess = viewModel.faceVerifyResult.similarity > threshold && toastViewTips.isEmpty
                 let toastStyle: ToastStyle = isSuccess ? .success : .failure
@@ -108,7 +207,7 @@ struct VerifyFaceView: View {
             if showLightHighDialog {
                 ZStack {
                     VStack(spacing: 22) {
-                        Text(viewModel.faceVerifyResult.tips)
+                        Text(FaceSDKLocalization.shared.localizedString("Face_Tips_Code_53", defaultValue: "Deteksi gagal: Terlalu terang. Hindari cahaya langsung dan gunakan di lingkungan dalam ruangan dengan pencahayaan lembut"))
                             .font(.system(size: 16).bold())
                             .fontWeight(.semibold)
                             .multilineTextAlignment(.center)
@@ -126,7 +225,7 @@ struct VerifyFaceView: View {
                         Button(action: {
                             withAnimation {
                                 showLightHighDialog = false
-                                onDismiss(viewModel.faceVerifyResult.code)
+                                onDismiss(viewModel.faceVerifyResult.code, nil) // Light too high = Not Verify
                                 dismiss()
                             }
                         }) {
@@ -159,19 +258,20 @@ struct VerifyFaceView: View {
                 UIScreen.main.brightness = 1.0
             }
 
-            // Check if local feature exists
-            guard let faceFeature = UserDefaults.standard.string(forKey: faceID) else {
-                toastViewTips = "\(FaceSDKLocalization.shared.localizedString("No Face Feature", defaultValue: "No Face Feature")): \(faceID)"
+            // Validate face feature
+            guard !faceFeature.isEmpty, faceFeature.count == 1024 else {
+                toastViewTips = FaceSDKLocalization.shared.localizedString("No Face Feature", defaultValue: "No Face Feature")
                 showToast = true
 
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                     showToast = false
-                    onDismiss(6) // VerifyResultCode.NO_FACE_FEATURE
+                    onDismiss(6, nil) // VerifyResultCode.NO_FACE_FEATURE = Not Verify
                     dismiss()
                 }
                 return
             }
 
+            // Use faceFeature directly
             viewModel.initFaceAISDK(
                 faceIDFeature: faceFeature,
                 threshold: threshold,
@@ -181,6 +281,11 @@ struct VerifyFaceView: View {
                 motionLivenessTimeOut: motionLivenessTimeOut,
                 motionLivenessSteps: motionLivenessSteps
             )
+
+            // Setup photo capture after SDK initialization (with delay)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                setupPhotoCaptureIfNeeded()
+            }
         }
         .onChange(of: viewModel.faceVerifyResult.code) { newValue in
             toastViewTips = ""
@@ -192,11 +297,31 @@ struct VerifyFaceView: View {
             } else {
                 showToast = true
                 print("[FaceAISDK] Verify result: \(viewModel.faceVerifyResult)")
+
+                // Determine result based on code
+                let resultCode = viewModel.faceVerifyResult.code
+                let isSuccess = (resultCode == 1 || resultCode == 10) &&
+                                viewModel.faceVerifyResult.similarity > threshold
+
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
                     withAnimation {
                         showToast = false
                     }
-                    onDismiss(viewModel.faceVerifyResult.code)
+
+                    // Handle different result cases:
+                    // - Success (code 1 or 10 with similarity > threshold): capture image and return path
+                    // - Timeout (code 4): return nil with code 4
+                    // - Others: return nil with code
+                    var capturedImagePath: String? = nil
+                    if isSuccess {
+                        // Try to save the captured image
+                        capturedImagePath = captureAndSaveImage()
+                        print("[FaceAISDK] Verification SUCCESS - Image path: \(capturedImagePath ?? "nil")")
+                    } else {
+                        print("[FaceAISDK] Verification FAILED - Code: \(resultCode)")
+                    }
+
+                    onDismiss(resultCode, capturedImagePath)
                     dismiss()
                 }
             }
@@ -209,5 +334,100 @@ struct VerifyFaceView: View {
             viewModel.stopFaceVerify()
         }
         .animation(.easeInOut(duration: 0.3), value: showToast)
+    }
+}
+
+// MARK: - Photo Capture Helper
+/// Helper class to capture photos using AVCapturePhotoOutput (works alongside SDK's video processing)
+class PhotoCaptureHelper: NSObject, ObservableObject, AVCapturePhotoCaptureDelegate {
+    @Published var capturedImage: UIImage?
+
+    private var photoOutput: AVCapturePhotoOutput?
+    private var isSetup = false
+
+    /// Setup photo output on the session (non-invasive - AVCapturePhotoOutput is designed to coexist)
+    func setupPhotoOutput(session: AVCaptureSession) {
+        guard !isSetup else {
+            print("[PhotoCaptureHelper] Already setup")
+            return
+        }
+
+        let newPhotoOutput = AVCapturePhotoOutput()
+
+        session.beginConfiguration()
+
+        if session.canAddOutput(newPhotoOutput) {
+            session.addOutput(newPhotoOutput)
+            self.photoOutput = newPhotoOutput
+            self.isSetup = true
+            print("[PhotoCaptureHelper] Added photo output successfully")
+
+            // Capture a photo immediately and periodically to always have a recent image
+            capturePhoto()
+        } else {
+            print("[PhotoCaptureHelper] Could not add photo output")
+        }
+
+        session.commitConfiguration()
+
+        // Start periodic capture to always have a recent image
+        startPeriodicCapture()
+    }
+
+    /// Start capturing photos periodically
+    private func startPeriodicCapture() {
+        // Capture every 0.5 seconds to always have a recent image
+        Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] timer in
+            guard let self = self, self.isSetup else {
+                timer.invalidate()
+                return
+            }
+            self.capturePhoto()
+        }
+    }
+
+    /// Capture a single photo
+    func capturePhoto() {
+        guard let photoOutput = photoOutput else {
+            print("[PhotoCaptureHelper] Photo output not ready")
+            return
+        }
+
+        let settings = AVCapturePhotoSettings()
+        // Use default settings for best compatibility
+        photoOutput.capturePhoto(with: settings, delegate: self)
+    }
+
+    // MARK: - AVCapturePhotoCaptureDelegate
+
+    func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        if let error = error {
+            print("[PhotoCaptureHelper] Capture error: \(error.localizedDescription)")
+            return
+        }
+
+        guard let imageData = photo.fileDataRepresentation(),
+              let image = UIImage(data: imageData) else {
+            print("[PhotoCaptureHelper] Could not create image from photo")
+            return
+        }
+
+        DispatchQueue.main.async { [weak self] in
+            self?.capturedImage = image
+            print("[PhotoCaptureHelper] Photo captured successfully")
+        }
+    }
+
+    /// Cleanup
+    func cleanup(session: AVCaptureSession?) {
+        guard let session = session, let output = photoOutput else { return }
+
+        session.beginConfiguration()
+        session.removeOutput(output)
+        session.commitConfiguration()
+
+        self.photoOutput = nil
+        self.isSetup = false
+        print("[PhotoCaptureHelper] Removed photo output")
     }
 }

@@ -28,6 +28,28 @@ struct LivenessDetectView: View {
         return FaceSDKLocalization.shared.localizedTip(for: code)
     }
 
+    // Get localized result tip for liveness detection
+    private func getLocalizedLivenessTip(code: Int) -> String {
+        switch code {
+        case 3:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_34", defaultValue: "Deteksi liveness gerakan selesai")
+        case 4:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_35", defaultValue: "Deteksi liveness gerakan waktu habis")
+        case 5:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_38", defaultValue: "Tidak ada wajah beberapa kali")
+        case 7:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_51", defaultValue: "Deteksi kilat warna berhasil")
+        case 8:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_52", defaultValue: "Deteksi kilat warna gagal")
+        case 9:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_53", defaultValue: "Terlalu terang")
+        case 10:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_61", defaultValue: "Deteksi liveness selesai")
+        default:
+            return FaceSDKLocalization.shared.localizedString("Face_Tips_Code_52", defaultValue: "Deteksi gagal")
+        }
+    }
+
 
     var body: some View {
         ZStack {
@@ -78,11 +100,13 @@ struct LivenessDetectView: View {
             .navigationBarHidden(true)
 
              if showToast {
+                let resultCode = viewModel.faceVerifyResult.code
+                let isSuccess = resultCode == 3 || resultCode == 7 || resultCode == 10
                 VStack {
                     Spacer()
                     CustomToastView(
-                        message: "\(viewModel.faceVerifyResult.tips)",
-                        style: .success
+                        message: getLocalizedLivenessTip(code: resultCode),
+                        style: isSuccess ? .success : .failure
                     )
                      .padding(.bottom, 77)
                 }
@@ -95,7 +119,7 @@ struct LivenessDetectView: View {
             if showLightHighDialog {
                 ZStack {
                     VStack(spacing: 22) {
-                        Text(viewModel.faceVerifyResult.tips)
+                        Text(FaceSDKLocalization.shared.localizedString("Face_Tips_Code_53", defaultValue: "Deteksi gagal: Terlalu terang. Hindari cahaya langsung dan gunakan di lingkungan dalam ruangan dengan pencahayaan lembut"))
                             .font(.system(size: 16).bold())
                             .fontWeight(.semibold)
                             .multilineTextAlignment(.center)
