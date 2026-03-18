@@ -37,8 +37,6 @@ public class FaceSDKConfig {
         MMKV defaultKV = MMKV.defaultMMKV();
         defaultKV.clearAll();
 
-        MMKV.onExit();
-
         File mmkvDir = new File(context.getFilesDir(), "mmkv");
         if (mmkvDir.exists() && mmkvDir.listFiles() != null) {
             for (File file : mmkvDir.listFiles()) {
