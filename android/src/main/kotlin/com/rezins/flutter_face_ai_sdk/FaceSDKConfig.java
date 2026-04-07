@@ -31,18 +31,6 @@ public class FaceSDKConfig {
     public static void init(Context context) {
 
         //使用MMKV保存简单1:1人脸特征保存key为faceID,value为特征值 （人脸搜索的人脸特征放在SDK内置数据库中管理）
-        // Clear semua MMKV data
-        MMKV.initialize(context);
-        // Clear default MMKV (face feature data)
-        MMKV defaultKV = MMKV.defaultMMKV();
-        defaultKV.clearAll();
-
-        File mmkvDir = new File(context.getFilesDir(), "mmkv");
-        if (mmkvDir.exists() && mmkvDir.listFiles() != null) {
-            for (File file : mmkvDir.listFiles()) {
-                file.delete();
-            }
-        }
 
         // Re-initialize
         MMKV.initialize(context);
